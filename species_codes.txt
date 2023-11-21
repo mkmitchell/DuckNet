@@ -1,13 +1,8 @@
-Barbastella barbastellus                             :   Bbar
-Eptesicus serotinus                                  :   Eser
-Myotis mystacinus_Myotis brandtii_Myotis alcathoe    :   Mbra
-Myotis bechsteinii                                   :   Mbec
-Myotis dasycneme                                     :   Mdas
-Myotis daubentonii                                   :   Mdau
-Myotis emarginatus                                   :   Mema
-Myotis myotis_Myotis blythii                         :   Mmyo
-Myotis nattereri                                     :   Mnat
-Nyctalus noctula                                     :   Nnoc
-Plecotus auritus_Plecotus austriacus                 :   Paur
-Pipistrellus sp.                                     :   Ppip
-Rhinolophus sp.                                      :   Rhin
+Fulica americana            :   AMCO
+Mareca strepera             :   GADW
+Anas carolinensis           :   GWTE
+Anas acuta                  :   NOPI
+Spatula clypeata            :   NSHO
+Anas platyrhynchos          :   MALL
+Aythya americana            :   REDH
+Aythya collaris             :   RNDU
