@@ -1,0 +1,52 @@
+{% from   'base/main_container.html'    import main_container as base_main_container%}
+{% from   'base/detection_tab.html'     import detection_tab as base_detection_tab, base_main_table %}
+{% from   'bats/training_tab.html'      import training_tab as bats_training_tab %}
+
+
+{% macro download_menu(app) %}
+<a class="metadata item" id="metadata-button" onclick="{{ app }}.on_metadata()">
+    <i class="list icon"></i>
+    Metadata
+</a>
+<div class="ui simple dropdown download-all item" onclick="">
+    <i class="download icon"></i>
+    Download
+    <div class="menu">
+        <div class="item" id="download-csv-button" onclick="{{app}}.Download.on_download_csv(event)" >Download CSV</div>
+        <div class="item" id="download-json-button" onclick="{{app}}.Download.on_download_json(event)">Download Annotations</div>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro main_table_head(app) %}
+<thead>
+    <tr>
+        <th class="six wide"  onclick="{{ app }}.Sorting.on_table_header(event)" title="Sort by filename" id="files-loaded-column-header">
+            No Files Loaded
+        </th>
+        <th class="nine wide" onclick="{{ app }}.Sorting.on_table_header(event)" title="Sort by number of bats">
+            Detected Bats
+        </th>
+        <th class="one wide" onclick="{{ app }}.Sorting.on_table_header(event)"  title="Sort by confidence">
+            Flags
+        </th>
+    </tr>
+</thead>
+{% endmacro %}
+
+
+{% macro main_container(app) %}
+    {{ base_main_container(
+        app, 
+        detection_tab  = base_detection_tab(
+            app, 
+            main_table = base_main_table(
+                app, 
+                sortable   = True, 
+                table_head = main_table_head(app)
+            ),
+            filetable_download_menu = download_menu(app)
+        ),
+        training_tab  = bats_training_tab(app))
+    | indent }}
+{% endmacro %}

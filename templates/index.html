@@ -2,17 +2,17 @@
 
 {% from   'base/top_menu.html'          import top_menu %}
 {% import 'base/modals.html'            as     base_modals %}
-{% from   'bats/js_templates.html'      import filetable_row_template %}
-{% from   'bats/main_container.html'    import main_container %}
-{% from   'bats/modals.html'            import metadata_dialog, modal_settings %}
+{% from   'ducks/js_templates.html'      import filetable_row_template %}
+{% from   'ducks/main_container.html'    import main_container %}
+{% from   'ducks/modals.html'            import metadata_dialog, modal_settings %}
 
-{% set app = "BatApp" %}
+{% set app = "DuckApp" %}
 
 <html>
-    <title>🦇 BatNet</title>
+    <title>🦆 DuckNet</title>
 <head>
     {% include 'base/scripts.html'   %}
-    {% include 'bats/scripts.html'  %}
+    {% include 'ducks/scripts.html'  %}
 
     {{ filetable_row_template(app)  | indent }}
 </head>
