@@ -1,6 +1,6 @@
 # DuckNet
 
-*DuckNet* is an open-source, deep learning-based tool for rapid and accurate duck species identification from drone images, forked from the amazing work of [BatNet](https://github.com/GabiK-bat/BatNet). The baseline model is trained to identify seven waterfowl species and one species of other waterbird: American coot (Fulica americana), gadwall (Mareca strepera), green-winged teal (Anas carolinensis), northern pintail (Anas acuta), northern shoveler (Spatula clypeata), mallard (Anas platyrhynchos), redhead (Aythya americana), and ring-necked duck (Aythya collaris).
+*DuckNet* is an open-source, deep learning-based tool for rapidly and accurately detecting, localizing, and classifying species of waterfowl in drone images—forked from the amazing work of [BatNet](https://github.com/GabiK-bat/BatNet). The baseline model (SSD with VGG16 backbone) is trained to identify seven waterfowl species and one species of other waterbird: American coot (*Fulica americana*), gadwall (*Mareca strepera*), green-winged teal (*Anas carolinensis*), northern pintail (*Anas acuta*), northern shoveler (*Spatula clypeata*), mallard (*Anas platyrhynchos*), redhead (*Aythya americana*), and ring-necked duck (*Aythya collaris*).
 
 
 **Citation**:
