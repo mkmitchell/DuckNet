@@ -12,11 +12,11 @@ class CLI(base_cli.CLI):
     @classmethod
     def create_parser(cls):
         parser = super().create_parser(
-            description    = '🦇 DigIT! Bat Detector 🦇',
-            default_output = 'detected_bats.csv',
+            description    = '🦆 Drone Duck Detector! 🦆',
+            default_output = 'detected_ducks.csv',
         )
         parser.add_argument('--saveboxes',  action='store_const', const=True, default=False,
-                            help='Include boxes of detected bats in the output')
+                            help='Include boxes of detected ducks in the output')
         return parser
 
     #override
