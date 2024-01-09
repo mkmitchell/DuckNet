@@ -5,7 +5,7 @@ os.environ['DO_NOT_RELOAD'] = 'true'
 from backend.app import App
 App().recompile_static(force=True)        #make sure the static/ folder is up to date
 
-build_name = f'{time.strftime("%Y-%m-%d_%Hh%Mm%Ss")}_BatDetector'
+build_name = f'{time.strftime("%Y-%m-%d_%Hh%Mm%Ss")}_DuckDetector'
 build_dir  = 'builds/%s'%build_name
 
 rc = subprocess.call(f'''pyinstaller --noupx                 \
@@ -21,7 +21,7 @@ shutil.copytree('models', build_dir+'/models')
 shutil.copyfile('species_codes.txt', build_dir+'/species_codes.txt')
 
 if 'linux' in sys.platform:
-    os.symlink('/main/main', build_dir+'/batnet')
+    os.symlink('/main/main', build_dir+'/ducknet')
 else:
     open(build_dir+'/main.bat', 'w').write(r'main\main.exe %*'+'\npause')
 
