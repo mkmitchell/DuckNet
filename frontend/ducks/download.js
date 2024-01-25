@@ -1,9 +1,9 @@
 
 
-BatDownload = class extends ObjectDetectionDownload{
+DuckDownload = class extends ObjectDetectionDownload{
     //override
     static build_annotation_jsonfile(filename, results){
-        return super.build_annotation_jsonfile(filename, results, "Not-A-Bat")
+        return super.build_annotation_jsonfile(filename, results, "Not-A-Duck")
     }
 
 
@@ -40,7 +40,7 @@ BatDownload = class extends ObjectDetectionDownload{
         const filenames = Object.keys(GLOBAL.files)
         const csv       = this.csv_data_for_files(filenames)
         if(!!csv)
-            download_text('detected_bats.csv', csv)
+            download_text('detected_ducks.csv', csv)
     }
 
     static csv_data_for_files(filenames){

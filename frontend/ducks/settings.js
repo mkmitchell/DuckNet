@@ -1,5 +1,5 @@
 
-BatSettings = class extends BaseSettings{
+DuckSettings = class extends BaseSettings{
     //override
     static apply_settings_from_modal(){
         super.apply_settings_from_modal()

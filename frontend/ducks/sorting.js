@@ -1,6 +1,6 @@
 
 
-BatSorting = class extends BaseSorting {
+DuckSorting = class extends BaseSorting {
     static on_table_header(event){
         const column_index = super.on_table_header(event)
         if(column_index==1)
@@ -31,7 +31,7 @@ BatSorting = class extends BaseSorting {
         this.set_new_file_order(filenames)
     }
 
-    //called when user clicks on "Detected Bats" column head
+    //called when user clicks on "Detected Ducks" column head
     static on_sort_by_number(event){
         const $col       = $(event.target);
         const direction  = $col.hasClass('ascending')? 'descending' : 'ascending';

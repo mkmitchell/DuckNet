@@ -23,7 +23,7 @@ MODULES = ['datasets', 'traininglib']
 
 
 
-class BatDetector(torch.nn.Module):
+class DuckDetector(torch.nn.Module):
     def __init__(self, classes_of_interest):
         super().__init__()
         self.class_list         = classes_of_interest
@@ -335,11 +335,11 @@ class Classifier(torch.nn.Module):
         return self.basemodel(x)[:, :len(self.class_list)]
     
     def set_classes(self, new_classes):
-        #new_classes = set([c.lower() for c in new_classes]).difference(['not-a-bat','other'])
-        #new_classes = ['not-a-bat'] + sorted( new_classes ) + ['other']
+        #new_classes = set([c.lower() for c in new_classes]).difference(['not-a-Duck','other'])
+        #new_classes = ['not-a-Duck'] + sorted( new_classes ) + ['other']
         #old_classes = [c.lower() for c in self.class_list]
-        new_classes = set([c for c in new_classes]).difference(['Not-A-Bat','Other'])
-        new_classes = ['Not-A-Bat'] + sorted( new_classes ) + ['Other']
+        new_classes = set([c for c in new_classes]).difference(['Not-A-Duck','Other'])
+        new_classes = ['Not-A-Duck'] + sorted( new_classes ) + ['Other']
         old_classes = [c for c in self.class_list]
         try:    old_linear  = self.basemodel.classifier[-1]
         except: old_linear  = self.basemodel[-1]

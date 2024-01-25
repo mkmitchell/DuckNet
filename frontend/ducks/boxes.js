@@ -1,8 +1,8 @@
 
 
-BatBoxes = class extends BaseBoxes {
+DuckBoxes = class extends BaseBoxes {
     //override
-    static NEGATIVE_CLASS_NAME = 'Not-A-Bat'
+    static NEGATIVE_CLASS_NAME = 'Not-A-Duck'
 
     //TODO: unify
     //override

@@ -1,7 +1,7 @@
 //TODO: unify
 
 
-BatFileInput = class extends BaseFileInput{
+DuckFileInput = class extends BaseFileInput{
 
     //override
     static set_input_files(files){

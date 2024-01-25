@@ -1,4 +1,4 @@
-BatDetection = class extends BaseDetection {
+DuckDetection = class extends BaseDetection {
 
     //override
     static async set_results(filename, results){
@@ -15,30 +15,30 @@ BatDetection = class extends BaseDetection {
         
         if(!clear){
             console.log(`Setting results for ${filename}:`, results)
-            const batresults = new BatResults(results)
-            GLOBAL.files[filename].results = batresults
+            const Duckresults = new DuckResults(results)
+            GLOBAL.files[filename].results = duckresults
             GLOBAL.App.Boxes.refresh_boxes(filename)
             
-            $root.find(`td:nth-of-type(2)`).html( this.format_results_for_table(batresults) )
+            $root.find(`td:nth-of-type(2)`).html( this.format_results_for_table(duckresults) )
             this.update_flags(filename)
         }
 
         this.set_processed(filename, clear)
     }
 
-    static format_results_for_table(batresults){
+    static format_results_for_table(duckresults){
         const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.70
-        const n     = batresults.labels.length;
+        const n     = duckresults.labels.length;
         let   texts = []
         for (let i = 0; i < n; i++) {
-            let   label      = batresults.labels[i];
-            const confidence = Object.values(batresults.predictions[i])[0]
-            if(!label || (label.toLowerCase()=='not-a-bat')){
+            let   label      = duckresults.labels[i];
+            const confidence = Object.values(duckresults.predictions[i])[0]
+            if(!label || (label.toLowerCase()=='not-a-duck')){
                 if(confidence > hiconf_threshold)
-                    //filter high-confidence non-bat
+                    //filter high-confidence non-duck
                     continue;
                 else
-                    label = 'Not-A-Bat'
+                    label = 'Not-A-Duck'
             }
             
             let   text       = `${label}(${(confidence*100).toFixed(0)}%)`

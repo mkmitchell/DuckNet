@@ -1,14 +1,14 @@
 
-BatApp = class extends BaseApp {
-   static FileInput     = BatFileInput;
-   static Detection     = BatDetection;
-   static Boxes         = BatBoxes;
-   static Sorting       = BatSorting;
-   static Download      = BatDownload;
-   static Training      = BatTraining;
-   static Settings      = BatSettings;
+DuckApp = class extends BaseApp {
+   static FileInput     = DuckFileInput;
+   static Detection     = DuckDetection;
+   static Boxes         = DuckBoxes;
+   static Sorting       = DuckSorting;
+   static Download      = DuckDownload;
+   static Training      = DuckTraining;
+   static Settings      = DuckSettings;
 
-   static NEGATIVE_CLASS = 'Not-A-Bat'
+   static NEGATIVE_CLASS = 'Not-A-Duck'
 
     //called on click on "Metadata" button
     static on_metadata(){
@@ -31,11 +31,11 @@ BatApp = class extends BaseApp {
 
 
 //override
-GLOBAL.App      = BatApp;
+GLOBAL.App      = DuckApp;
 GLOBAL.metadata = undefined;
 GLOBAL.species_codes = {};    //'species': 'code';   loaded via settings
 
-BatResults = class {
+DuckResults = class {
     predictions = []                 // [{'species' : confidence}, ...]
     boxes       = []                 // [[y0,x0,y1,x1], ...]
     labels      = [];                // ['selected species', ...]

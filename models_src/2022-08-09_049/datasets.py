@@ -108,7 +108,7 @@ class Dataset:
         return image, target
 
 class DetectionDataset(Dataset):
-    #IGNORE = set(['Bat_hanging'])
+    #IGNORE = set(['Duck_hanging'])
     #SIZE   = 320 #px
     
     def __init__(self, jpgfiles, jsonfiles, augment:bool, negative_classes:list, image_size:int=320):
@@ -123,9 +123,9 @@ class DetectionDataset(Dataset):
         image    = load_image(jpgfile)
         #load normalized boxes: 0...1
         boxes    = get_boxes_from_jsonfile(jsonfile, flip_axes=0, normalize=0)
-        #bat species labels
+        #Duck species labels
         labels   = get_labels_from_jsonfile(jsonfile)
-        #remove hanging bats
+        #remove hanging Ducks
         boxes    = [box for box,label in zip(boxes, labels) if label not in self.negative_classes]
         boxes    = np.array(boxes).reshape(-1,4)
         if self.augment and np.random.random()<0.5:
@@ -137,7 +137,7 @@ class DetectionDataset(Dataset):
         boxes    = self.scale_boxes(boxes, image.size, [self.image_size]*2)
         boxes    = torch.as_tensor(boxes)
         image    = image.resize([self.image_size]*2)
-        #object detector does not need to know the bat species, set all labels to 1
+        #object detector does not need to know the Duck species, set all labels to 1
         labels   = torch.ones(len(boxes)).long()
         return image, {'boxes':boxes, 'labels':labels}
     
@@ -176,7 +176,7 @@ class DetectionDataset(Dataset):
         return images, targets
 
 class OOD_DetectionDataset(DetectionDataset):
-    '''Augments the bats dataset with out-of-distribution images'''
+    '''Augments the Ducks dataset with out-of-distribution images'''
     def __init__(self, *args, ood_files, n_ood, **kwargs):
         super().__init__(*args, **kwargs)
         self.ood_files = ood_files
@@ -256,8 +256,8 @@ class ClassificationDataset(Dataset):
     # 'Rhinolophus ferrumequinum',
      'Rhinolophus sp.'
     ]
-    NEGATIVES = ['Bat_hanging']  #counts as own class (not-a-bat)
-    LOWCONFS  = ['Bat_unknown']  #tries to reduce confidence
+    NEGATIVES = ['Duck_hanging']  #counts as own class (not-a-Duck)
+    LOWCONFS  = ['Duck_unknown']  #tries to reduce confidence
     
     def __init__(
             self, 
@@ -265,8 +265,8 @@ class ClassificationDataset(Dataset):
             jsonfiles:list, 
             detected_boxes:'list | None', #boxes from detector (incl false positives), GT is used if None
             classes_of_interest:list,
-            classes_negative:list     = ['Bat_hanging'], #count as own class (not-a-bat)
-            classes_lowconf:list      = ['Bat_unknown'], #try to reduce confidence
+            classes_negative:list     = ['Duck_hanging'], #count as own class (not-a-Duck)
+            classes_lowconf:list      = ['Duck_unknown'], #try to reduce confidence
             augment:bool              = False, 
             image_size:int            = 256,
             use_tf_loading:bool       = False,  #faster, but make sure that there are no EXIF-rotated images
@@ -367,7 +367,7 @@ def random_wrong_box(imagesize, true_boxes, n=15, max_iou=0.1):
         return None
 
 class OOD_ClassificationDataset(ClassificationDataset):
-    '''Augments the bats dataset with wrong boxes and out-of-distribution images'''
+    '''Augments the Ducks dataset with wrong boxes and out-of-distribution images'''
     def __init__(self, *args, ood_files, n_ood, **kwargs):
         super().__init__(*args, **kwargs)
         self.ood_files = ood_files

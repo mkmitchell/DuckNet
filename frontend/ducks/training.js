@@ -1,6 +1,6 @@
 
 
-BatTraining = class extends ObjectDetectionTraining {
+DuckTraining = class extends ObjectDetectionTraining {
     
     //dummy override: all files (with results) selected
     static get_selected_files(){
@@ -10,7 +10,7 @@ BatTraining = class extends ObjectDetectionTraining {
     }
 
     static collect_class_counts(){
-        return super.collect_class_counts('Not-A-Bat')
+        return super.collect_class_counts('Not-A-Duck')
     }
 
 }
