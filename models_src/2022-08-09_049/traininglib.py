@@ -1,10 +1,10 @@
 import torch, torchvision
 import numpy as np
-
+import scipy.optimize#ADDED
 
 
 class TrainingTask(torch.nn.Module):
-    def __init__(self, basemodule, epochs=10, lr=0.05, callback=None):
+    def __init__(self, basemodule, epochs=10, lr=0.005, callback=None):
         super().__init__()
         self.basemodule        = basemodule
         self.epochs            = epochs
@@ -19,10 +19,10 @@ class TrainingTask(torch.nn.Module):
         raise NotImplementedError()
     
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=5e-4)
         steps = [int(self.epochs*i) for i in [0.6,0.8,0.92]]
         print('Learning rate milestones:', steps)
-        sched = torch.optim.lr_scheduler.MultiStepLR(optim, steps, gamma=0.2)
+        sched = torch.optim.lr_scheduler.MultiStepLR(optim, steps, gamma=0.1)
         return optim, sched
     
     @property
@@ -172,27 +172,6 @@ def dice_entropy_loss(ypred, ytrue, alpha=0.1, weight_map=1):
     return (  dice_loss(ypred, ytrue)[:,np.newaxis, np.newaxis]*alpha 
             + torch.nn.functional.binary_cross_entropy(ypred, ytrue, reduction='none')*(1-alpha)*weight_map ).mean()
 
-class SegmentationTask(TrainingTask):
-    def training_step(self, batch):
-        x,ytrue = batch
-        x,ytrue = x.to(self.device), ytrue.to(self.device)
-        ypred   = self.basemodule(x)
-        ypred   = torch.sigmoid(ypred)
-        loss    = dice_entropy_loss(ypred, ytrue)
-        return loss, {'loss', loss.item()}
-    
-    def validation_step(self, batch):
-        x,ytrue   = batch
-        x,ytrue = x.to(self.device), ytrue.to(self.device)
-        ypred     = (self.basemodule(x) > 0).float()
-        recall    = (ypred * ytrue).sum()/(ytrue.sum()+1)
-        precision = (ypred * ytrue).sum()/(ypred.sum()+1)
-        dice      = dice_score(ypred, ytrue).mean()
-        return None, {
-            'recall'    : recall,
-            'precision' : precision,
-            'dice'      : dice,
-        }
 
 
 def smoothed_cross_entropy(ypred, ytrue, alpha=0.01, ignore_index=-100):
@@ -232,10 +211,6 @@ class ClassificationTask(TrainingTask):
     def validation_epoch_end(self, hitlist):
         accuracy = torch.cat(hitlist).float().mean()
         return {'accuracy': accuracy.item()}
-
-
-
-
 
 
 class PrintMetricsCallback:
