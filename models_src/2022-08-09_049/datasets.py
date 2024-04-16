@@ -14,16 +14,11 @@ def load_image(path:str) -> PIL.Image:
     image = PIL.ImageOps.exif_transpose(image)
     return image
 
-try:
-    #tensorflow for faster jpeg loading
-    #CAUTION: can cause issues with image orientation
-    import tensorflow as tf #No tensorflow for DuckNet.
-    assert [] == tf.config.list_physical_devices('GPU')
-except ImportError:
-    #print('Could not import TensorFlow. Classifier training might be slow.')
-    tf = None
+# Comment out the import statement since TensorFlow is not needed for DuckNet.
+# import tensorflow as tf
+# assert [] == tf.config.list_physical_devices('GPU')
 
-    
+
 def guess_encoding(x:bytes) -> str:
     try:
         return x.decode('utf8')
