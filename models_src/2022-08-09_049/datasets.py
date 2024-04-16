@@ -80,7 +80,7 @@ def get_imagesize_from_jsonfile(jsonfile):
     return np.array([jsondata['imageHeight'], jsondata['imageWidth']])
 
 
-def get_transforms(train:bool):
+def get_transforms(train):
     transforms = []
     if train:
         transforms.append(T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
@@ -127,11 +127,10 @@ class DetectionDataset(Dataset):
     #IGNORE = set(['Duck_hanging'])
     #SIZE   = 300 #px
     
-    def __init__(self, jpgfiles, jsonfiles, train:bool, transforms, negative_classes:list, image_size:int=300):
+    def __init__(self, jpgfiles, jsonfiles, train:bool, negative_classes:list, image_size:int=300):
         super().__init__(jpgfiles, jsonfiles, train)
         self.negative_classes = negative_classes
         self.image_size       = image_size
-        self.transforms = transforms
     
     def __get_item__(self, i):
         jsonfile = self.jsonfiles[i]
@@ -154,8 +153,8 @@ class DetectionDataset(Dataset):
         target['area'] = torch.tensor([((box[3]-box[1])*(box[2]-box[0])) for box in boxes])
         target['iscrowd'] = torch.zeros((len(boxes),), dtype=torch.int64)
 
-        if self.transforms is not None:
-            image, target = self.transforms(image, target)
+        if self.train:
+            image, target = get_transforms(self.train)(image, target)
         
         return image, target
     
