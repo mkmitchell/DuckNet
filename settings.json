@@ -1,0 +1,39 @@
+{
+	"available_models": {
+		"detection": [
+			{
+				"name": "basemodel",
+				"properties": {
+					"known_classes": [
+						"Fulica americana",
+						"Mareca strepera",
+						"Anas carolinensis",
+						"Anas acuta",
+						"Spatula clypeata",
+						"Anas platyrhynchos",
+						"Aythya americana",
+						"Aythya collaris"
+					]
+				}
+			}
+		]
+	},
+	"settings": {
+		"active_models": {
+			"detection": "basemodel"
+		},
+		"confidence_threshold": 70,
+		"export_boxes": false,
+		"flag_negatives": true
+	},
+	"species_codes": {
+		"Fulica americana": "AMCO",
+		"Mareca strepera": "GADW",
+		"Anas carolinensis": "GWTE",
+		"Anas acuta": "NOPI",
+		"Spatula clypeata": "NSHO",
+		"Anas platyrhynchos": "MALL",
+		"Aythya americana": "REDH",
+		"Aythya collaris": "RNDU"
+	}
+}
