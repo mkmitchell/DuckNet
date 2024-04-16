@@ -2,6 +2,7 @@ import torch, torchvision
 from torchvision.models._utils import IntermediateLayerGetter
 #import PIL.Image  #use datasets.load_image() instead
 import numpy as np
+from datasets import get_transforms
 
 import typing as tp
 import io, warnings, sys, time, importlib
@@ -94,7 +95,7 @@ class DuckDetector(torch.nn.Module):
             self, 
             imagefiles_train,          jsonfiles_train,
             imagefiles_test   = None,  jsonfiles_test = None, ood_files = [], 
-            negative_classes  = [],    lr             = 1e-3,
+            negative_classes  = [],    lr             = 5e-3,
             epochs            = 10,    callback       = None,
             num_workers       = 'auto',
     ):
@@ -102,12 +103,12 @@ class DuckDetector(torch.nn.Module):
         ds_type = datasets.DetectionDataset if (n_ood==0) else datasets.OOD_DetectionDataset
         ood_kw  = {}                        if (n_ood==0) else {'ood_files':ood_files, 'n_ood':n_ood}
         
-        ds_train = ds_type(imagefiles_train, jsonfiles_train, augment=True, negative_classes=negative_classes, **ood_kw)
+        ds_train = ds_type(imagefiles_train, jsonfiles_train, augment=get_transforms(train=True), negative_classes=negative_classes, **ood_kw)
         ld_train = datasets.create_dataloader(ds_train, batch_size=8, shuffle=True, num_workers=num_workers)
         
         ld_test  = None
         if imagefiles_test is not None:
-            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=False, negative_classes=negative_classes)
+            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=get_transforms(train=False), negative_classes=negative_classes)
             ld_test  = datasets.create_dataloader(ds_test, batch_size=8, shuffle=False, num_workers=num_workers)
         
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
