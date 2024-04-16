@@ -10,8 +10,8 @@ warnings.simplefilter('ignore') #pytorch is too noisy
 
 if "__torch_package__" in dir():
     #inside a torch package
-    import torch_package_importer
-    import_func = torch_package_importer.import_module 
+    import torch.package.package_importer
+    import_func = torch.package.package_importer.import_module
 else:
     #normal
     import importlib
@@ -28,10 +28,10 @@ class DuckDetector(torch.nn.Module):
         super().__init__()
         self.class_list         = classes_of_interest
         self.detector           = Detector()
-        self.segmentation_model = UNet()
-        self.classifier         = Ensemble([
-            Classifier(self.segmentation_model, self.class_list, name) for name in ['mobilenet_v3_large', 'mobilenet_v2', 'shufflenet_v2_x1_0']
-        ])
+        # self.segmentation_model = UNet()
+        # self.classifier         = Ensemble([
+        #     Classifier(self.segmentation_model, self.class_list, name) for name in ['mobilenet_v3_large', 'mobilenet_v2', 'shufflenet_v2_x1_0']
+        # ])
         self._device_indicator  = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
     
     def forward(self, x, temperature:float=0.75):
@@ -71,13 +71,13 @@ class DuckDetector(torch.nn.Module):
         #image =  PIL.Image.open(filename) #do not use, exif-unaware
         image = datasets.load_image(filename) #exif-aware
         if to_tensor:
-            image = torchvision.transforms.functional.to_tensor(image)
+            image = torchvision.transforms.v2.ToImageTensor(image)
         return image
     
     def process_image(self, image, use_onnx=False):
         if isinstance(image, str):
             image = self.load_image(image)
-        x = torchvision.transforms.functional.to_tensor(image)
+        x = torchvision.transforms.v2.ToImageTensor(image)
         with torch.no_grad():
             output = self.eval().forward(x[np.newaxis])[0]
         
@@ -114,50 +114,7 @@ class DuckDetector(torch.nn.Module):
         ret  = task.fit(ld_train, ld_test, epochs=epochs)
         return (not task.stop_requested and not ret)
         
-    def start_training_segmentation_model(self, imagefiles, jsonfiles, epochs=15):
-        task     = SegmentationTask(self.segmentation_model)
-        ds_train = datasets.SegmentationDataset(imagefiles, jsonfiles, augment=True)
-        ld_train = datasets.create_dataloader(ds_train, batch_size=32, shuffle=True)
-        task.fit(epochs, ld_train)
-        return (not task.stop_requested)
     
-    def start_training_classifier(
-            self,
-            imagefiles_train,           targetfiles_train,
-            imagefiles_valid    = None, targetfiles_valid = None,
-            classes_of_interest = None, classes_negatives = [], 
-            classes_ignore      = [],   classes_lowconf   = [],
-            epochs              = 10,   lr                = 1e-3,
-            callback            = None, num_workers       = 'auto',  batch_size = 8,
-            ds_kwargs           = {},   task_kwargs       = {}
-    ):
-        classes_of_interest = classes_of_interest or self.class_list
-        classes_of_interest = self.classifier.set_classes(classes_of_interest) #new ordering
-        self.class_list     = classes_of_interest
-        
-        ds_train = datasets.ClassificationDataset(
-            imagefiles_train,    targetfiles_train, None,
-            classes_of_interest, classes_negatives, classes_lowconf,
-            image_size     = self.classifier.image_size,
-            augment        = True, **ds_kwargs)
-        ld_train = datasets.create_dataloader(ds_train, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        
-        ld_test  = None
-        if imagefiles_valid is not None:
-            ds_test = datasets.ClassificationDataset(
-                imagefiles_valid, targetfiles_valid, None,
-                classes_of_interest, classes_negatives, classes_lowconf,
-                image_size     = self.classifier.image_size,
-                augment        = False, **ds_kwargs)
-            ld_test = datasets.create_dataloader(ds_test, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-        
-        for i,clf in enumerate(self.classifier.classifiers):
-            cb = lambda x: callback( (i+x) / len(self.classifier.classifiers)) if callback else None
-            task = traininglib.ClassificationTask(clf, epochs=epochs, lr=lr, callback=cb, **task_kwargs)
-            ret  = task.fit(ld_train, ld_test, epochs=epochs)
-            if task.stop_requested or ret:
-                break
-        return (not task.stop_requested and not ret)
     
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
@@ -168,7 +125,7 @@ class DuckDetector(torch.nn.Module):
             if not destination.endswith('.pt.zip'):
                 destination += '.pt.zip'
         try:
-            import torch_package_importer as imp
+            import torch.package.package_importer as imp
             #re-export
             importer = (imp, torch.package.sys_importer)
         except ImportError as e:
@@ -194,7 +151,6 @@ class DuckDetector(torch.nn.Module):
             pe.save_text('model', 'class_list.txt', '\n'.join(self.class_list))
         return destination
     
-    
 
 
 #@torch.jit.script  #commented out to make the module cloudpickleable, scripted on the fly
@@ -219,9 +175,6 @@ class Prediction(tp.NamedTuple):
         return Prediction(*[x.cpu().numpy() if torch.is_tensor(x) else x for x in self])
 
 
-
-
-
 def normalize(x):
     if len(x)==0:
         return x
@@ -231,12 +184,12 @@ def normalize(x):
     return x / torch.clamp_min(xmax, 1e-6)  #range 0...1
 
 class Detector(torch.nn.Module):
-    def __init__(self, image_size=320):
+    def __init__(self, image_size=300):
         super().__init__()
-        self.basemodel = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=True, progress=False, min_size=image_size, box_score_thresh=0.5, box_nms_thresh=0.4)
-        self.resize     = torchvision.transforms.Resize([image_size]*2)
+        self.basemodel = torchvision.models.detection.ssd300_vgg16(weights=torchvision.models.detection.SSD300_VGG16_Weights.DEFAULT, weights_backbone='VGG16_Weights.IMAGENET1K_FEATURES')
+        self.resize = torchvision.transforms.v2.Resize([image_size]*2)
         self.image_size = image_size
-        self._device_indicator  = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
+        self._device_indicator = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
     
     def forward(self, x, targets:tp.Optional[tp.List[tp.Dict[str, torch.Tensor]]]=None):
         size0 = [x.shape[-2], x.shape[-1]]
@@ -253,126 +206,3 @@ class Detector(torch.nn.Module):
     def resize_boxes(self, inference_output:tp.List[tp.Dict[str, torch.Tensor]], from_size:tp.List[int], to_size:tp.List[int]):
         for o in inference_output:
             o['boxes'] = torchvision.models.detection.transform.resize_boxes(o['boxes'], from_size, to_size)
-
-
-
-class UNet(torch.nn.Module):
-    '''Backboned U-Net'''
-    class UpBlock(torch.nn.Module):
-        def __init__(self, in_c, out_c, inter_c=None):
-            torch.nn.Module.__init__(self)
-            inter_c        = inter_c or out_c
-            self.conv1x1   = torch.nn.Conv2d(in_c, inter_c, 1)
-            self.convblock = torch.nn.Sequential(
-                torch.nn.Conv2d(inter_c, out_c, 3, padding=1, bias=0),
-                torch.nn.BatchNorm2d(out_c),
-                torch.nn.ReLU(),
-            )
-        def forward(self, x, skip_x):
-            x = torch.nn.functional.interpolate(x, skip_x.shape[2:])
-            x = torch.cat([x, skip_x], dim=1)
-            x = self.conv1x1(x)
-            x = self.convblock(x)
-            return x
-    
-    def __init__(self):
-        torch.nn.Module.__init__(self)
-        return_layers = dict(relu='out0', layer1='out1', layer2='out2', layer3='out3', layer4='out4')
-        resnet        = torchvision.models.resnet18(pretrained=True, progress=False)
-        self.backbone = IntermediateLayerGetter(resnet, return_layers )
-        
-        C = 512  #resnet18
-        self.up0 = self.UpBlock(C    + C//2,  C//2)
-        self.up1 = self.UpBlock(C//2 + C//4,  C//4)
-        self.up2 = self.UpBlock(C//4 + C//8,  C//8)
-        self.up3 = self.UpBlock(C//8 + C//8,   64)
-        self.up4 = self.UpBlock(  64 +    3,   32)
-        self.cls = torch.nn.Conv2d(32, 1, 3, padding=1)
-    
-    
-    def forward(self, x):
-        x = normalize(x)
-        X = self.backbone(x)
-        X = ([x] + [X[f'out{i}'] for i in range(5)])[::-1]
-        x = X.pop(0)
-        x = self.up0(x, X[0])
-        x = self.up1(x, X[1])
-        x = self.up2(x, X[2])
-        x = self.up3(x, X[3])
-        x = self.up4(x, X[4])
-        x = self.cls(x)
-        return x
-    
-    def remove_background(self, x):
-        mask = self(x)
-        return x * (mask > 0).float()
-
-
-    
-class Classifier(torch.nn.Module):
-    def __init__(self, segmentation_model, class_list, modelname='mobilenet_v3_large', dropout_p=0.4):
-        torch.nn.Module.__init__(self)
-        self.segmentation_model = segmentation_model
-        self.class_list         = class_list
-        #disable gradient computation and thus training for the segmentation model  #FIXME: only during training
-        #for p in self.segmentation_model.parameters():
-        #    p.requires_grad = False
-        self.basemodel         = getattr(torchvision.models, modelname)(pretrained=True, progress=False)
-        if 'shufflenet' in modelname.lower():
-            layers  = list(self.basemodel.children())[:-1] 
-            layers += [torch.nn.AdaptiveAvgPool2d((1,1)), torch.nn.Flatten()]
-            layers += [torch.nn.Dropout(p = dropout_p) ]
-            layers += [list(self.basemodel.children())[-1] ]
-            self.basemodel = torch.nn.Sequential(*layers)
-        else:
-            #modify dropout percentage
-            self.basemodel.classifier[-2].p = dropout_p
-    
-    def forward(self, x, remove_bg:bool=True):
-        if remove_bg:
-            x    = self.segmentation_model.remove_background(x).detach()
-        x    = normalize(x)
-        return self.basemodel(x)[:, :len(self.class_list)]
-    
-    def set_classes(self, new_classes):
-        #new_classes = set([c.lower() for c in new_classes]).difference(['not-a-Duck','other'])
-        #new_classes = ['not-a-Duck'] + sorted( new_classes ) + ['other']
-        #old_classes = [c.lower() for c in self.class_list]
-        new_classes = set([c for c in new_classes]).difference(['Not-A-Duck','Other'])
-        new_classes = ['Not-A-Duck'] + sorted( new_classes ) + ['Other']
-        old_classes = [c for c in self.class_list]
-        try:    old_linear  = self.basemodel.classifier[-1]
-        except: old_linear  = self.basemodel[-1]
-        new_linear  = torch.nn.Linear(old_linear.weight.shape[1], len(new_classes)).requires_grad_(False)
-        for i,c in enumerate(new_classes):
-            if c in old_classes:
-                j = old_classes.index(c)
-                new_linear.weight.data[i] = old_linear.weight[j]
-                new_linear.bias.data[i]   = old_linear.bias[j]
-        try:      self.basemodel.classifier[-1]  = new_linear
-        except:   self.basemodel[-1]             = new_linear
-        self.class_list = new_classes
-        return self.class_list
-
-
-class Ensemble(torch.nn.Module):
-    def __init__(self, classifiers, image_size=256):
-        torch.nn.Module.__init__(self)
-        self.classifiers        = torch.nn.ModuleList(classifiers)
-        self.segmentation_model = classifiers[0].segmentation_model
-        self.image_size         = image_size
-    
-    def forward(self, x, T:float=1.0):
-        x  = self.segmentation_model.remove_background(x).detach()
-        Y  = [C(x, remove_bg=False) for C in self.classifiers]
-        Y += [C(torch.flip(x, dims=[-1]), False) for C in self.classifiers] #tta
-        y  = torch.softmax( torch.stack(Y) / T, -1 ).mean(0)
-        return y
-    
-    def set_classes(self, new_classes):
-        for clf in self.classifiers:
-            self.class_list = clf.set_classes(new_classes)
-        return self.class_list
-
-
-
