@@ -1,7 +1,7 @@
 import urllib.request, os
 
 URLS = {
-    'https://github.com/GabiK-bat/BatNet/releases/download/assets.basemodel.2022-12-13/basemodel.zip'        : 'models/detection/basemodel.pt.zip',
+    'https://github.com/mkmitchell/DuckNet/releases/download/asset/basemodel.zip'        : 'models/detection/basemodel.pt.zip',
 }
 
 for url, destination in URLS.items():
