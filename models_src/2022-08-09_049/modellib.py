@@ -1,4 +1,6 @@
 import torch, torchvision
+from torchvision.models.detection import ssd300_vgg16, SSD300_VGG16_Weights
+import torchvision.transforms.v2 as T
 from torchvision.models._utils import IntermediateLayerGetter
 #import PIL.Image  #use datasets.load_image() instead
 import numpy as np
@@ -72,13 +74,13 @@ class DuckDetector(torch.nn.Module):
         #image =  PIL.Image.open(filename) #do not use, exif-unaware
         image = datasets.load_image(filename) #exif-aware
         if to_tensor:
-            image = torchvision.transforms.v2.ToImageTensor(image)
+            image = T.ToImageTensor(image)
         return image
     
     def process_image(self, image, use_onnx=False):
         if isinstance(image, str):
             image = self.load_image(image)
-        x = torchvision.transforms.v2.ToImageTensor(image)
+        x = T.ToImageTensor(image)
         with torch.no_grad():
             output = self.eval().forward(x[np.newaxis])[0]
         
@@ -187,8 +189,8 @@ def normalize(x):
 class Detector(torch.nn.Module):
     def __init__(self, image_size=300):
         super().__init__()
-        self.basemodel = torchvision.models.detection.ssd300_vgg16(weights=torchvision.models.detection.SSD300_VGG16_Weights.DEFAULT, weights_backbone='VGG16_Weights.IMAGENET1K_FEATURES')
-        self.resize = torchvision.transforms.v2.Resize([image_size]*2)
+        self.basemodel = torchvision.models.detection.ssd300_vgg16(weights=None)
+        self.resize = T.Resize([image_size]*2)
         self.image_size = image_size
         self._device_indicator = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
     
