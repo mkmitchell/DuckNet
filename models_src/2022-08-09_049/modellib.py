@@ -31,10 +31,6 @@ class DuckDetector(torch.nn.Module):
         super().__init__()
         self.class_list         = classes_of_interest
         self.detector           = Detector()
-        self.segmentation_model = UNet()
-        self.classifier         = Ensemble([
-            Classifier(self.segmentation_model, self.class_list, name) for name in ['mobilenet_v3_large', 'mobilenet_v2', 'shufflenet_v2_x1_0']
-        ])
         self._device_indicator  = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
     
     def forward(self, x, temperature:float=0.75):
@@ -49,13 +45,13 @@ class DuckDetector(torch.nn.Module):
         for o in detector_outputs:
             boxes            = o['boxes']
             _boxes           = torch.cat([torch.zeros_like(boxes[:,:1]), boxes], -1)
-            cropsize         = self.classifier.image_size
+            cropsize         = self.detector.image_size
             crops            = torchvision.ops.roi_align(x, _boxes, cropsize, sampling_ratio=1)
             if torch.onnx.is_in_onnx_export():
                 #pad to batch dimension of at least one
                 crops = torch.jit.script(pad_if_needed)(crops)
             if crops.shape[0] > 0:
-                probabilities    = self.classifier(crops, T=temperature)
+                probabilities    = self.detector(crops, T=temperature)
                 probabilities    = probabilities[:boxes.shape[0]] #to counter-act padding in onnx
             else:
                 probabilities    = torch.zeros([0,len(self.class_list)])
@@ -232,7 +228,7 @@ def normalize(x):
 class Detector(torch.nn.Module):
     def __init__(self, image_size=300):
         super().__init__()
-        self.basemodel = torchvision.models.detection.ssd300_vgg16(weights=None)
+        self.basemodel = torchvision.models.detection.ssd300_vgg16(weights=torch.load('C:/Users/zack/Documents/GitHub/SSD_VGG_PyTorch/ssd300_vgg16_gradientAccumulation_noHen.pth', map_location=torch.device('cpu')), progress=False)
         self.resize = T.Resize([image_size]*2)
         self.image_size = image_size
         self._device_indicator = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
@@ -332,11 +328,11 @@ class Classifier(torch.nn.Module):
         return self.basemodel(x)[:, :len(self.class_list)]
     
     def set_classes(self, new_classes):
-        #new_classes = set([c.lower() for c in new_classes]).difference(['not-a-bat','other'])
-        #new_classes = ['not-a-bat'] + sorted( new_classes ) + ['other']
+        #new_classes = set([c.lower() for c in new_classes]).difference(['not-a-duck','other'])
+        #new_classes = ['not-a-duck'] + sorted( new_classes ) + ['other']
         #old_classes = [c.lower() for c in self.class_list]
-        new_classes = set([c for c in new_classes]).difference(['Not-A-Bat','Other'])
-        new_classes = ['Not-A-Bat'] + sorted( new_classes ) + ['Other']
+        new_classes = set([c for c in new_classes]).difference(['Not-A-Duck','Other'])
+        new_classes = ['Not-A-Duck'] + sorted( new_classes ) + ['Other']
         old_classes = [c for c in self.class_list]
         try:    old_linear  = self.basemodel.classifier[-1]
         except: old_linear  = self.basemodel[-1]
