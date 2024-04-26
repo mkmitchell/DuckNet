@@ -1,24 +1,19 @@
 import torch, torchvision
-# from torch import package
-# from torchvision.models.detection import ssd300_vgg16, SSD300_VGG16_Weights
-# import torchvision.transforms.v2 as T
-# from torchvision.models._utils import IntermediateLayerGetter
-#import PIL.Image  #use datasets.load_image() instead
 import numpy as np
-from datasets import get_transforms
-
 import typing as tp
-import io, warnings, sys, time, importlib
+import warnings, sys, time, importlib
 warnings.simplefilter('ignore') #pytorch is too noisy
 
 
 if "__torch_package__" in dir():
-    #inside a torch package
-    import_func = torch.package.PackageImporter().import_module
+    import torch_package_importer
+    import_func = torch_package_importer.import_module
 else:
     #normal
     import importlib
     import_func = lambda m: importlib.reload(importlib.import_module(m))
+
+
 
 #internal modules
 MODULES = ['datasets', 'traininglib']
@@ -50,12 +45,14 @@ class DuckDetector(torch.nn.Module):
             if torch.onnx.is_in_onnx_export():
                 #pad to batch dimension of at least one
                 crops = torch.jit.script(pad_if_needed)(crops)
-            if crops.shape[0] > 0:
-                probabilities    = self.detector(crops, T=temperature)
-                probabilities    = probabilities[:boxes.shape[0]] #to counter-act padding in onnx
-            else:
-                probabilities    = torch.zeros([0,len(self.class_list)])
+            # if crops.shape[0] > 0:
+            #     probabilities    = self.detector(crops, T=temperature)
+            #     probabilities    = probabilities[:boxes.shape[0]] #to counter-act padding in onnx
+            # else:
+            #     probabilities    = torch.zeros([0,len(self.class_list)])
             
+            probabilities    = torch.zeros([0,len(self.class_list)])
+
             results.append( Prediction(
                 boxes          = boxes,
                 box_scores     = o['scores'],
@@ -70,13 +67,13 @@ class DuckDetector(torch.nn.Module):
         #image =  PIL.Image.open(filename) #do not use, exif-unaware
         image = datasets.load_image(filename) #exif-aware
         if to_tensor:
-            image = torchvision.transforms.v2.ToImageTensor(image)
+            image = torchvision.transforms.functional.to_tensor(image)
         return image
     
     def process_image(self, image, use_onnx=False):
         if isinstance(image, str):
             image = self.load_image(image)
-        x = torchvision.transforms.v2.ToImageTensor(image)
+        x = torchvision.transforms.functional.to_tensor(image)
         with torch.no_grad():
             output = self.eval().forward(x[np.newaxis])[0]
         
@@ -101,12 +98,12 @@ class DuckDetector(torch.nn.Module):
         ds_type = datasets.DetectionDataset if (n_ood==0) else datasets.OOD_DetectionDataset
         ood_kw  = {}                        if (n_ood==0) else {'ood_files':ood_files, 'n_ood':n_ood}
         
-        ds_train = ds_type(imagefiles_train, jsonfiles_train, augment=get_transforms(train=True), negative_classes=negative_classes, **ood_kw)
+        ds_train = ds_type(imagefiles_train, jsonfiles_train, augment=datasets.get_transforms(train=True), negative_classes=negative_classes, **ood_kw)
         ld_train = datasets.create_dataloader(ds_train, batch_size=8, shuffle=True, num_workers=num_workers)
         
         ld_test  = None
         if imagefiles_test is not None:
-            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=get_transforms(train=False), negative_classes=negative_classes)
+            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=datasets.get_transforms(train=False), negative_classes=negative_classes)
             ld_test  = datasets.create_dataloader(ds_test, batch_size=8, shuffle=False, num_workers=num_workers)
         
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
