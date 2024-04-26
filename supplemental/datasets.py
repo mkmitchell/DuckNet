@@ -3,7 +3,7 @@ from torchvision import datapoints as dp
 import torchvision.transforms.v2 as T
 import numpy as np
 import PIL.Image, PIL.ImageOps
-import glob, json, os
+import json, os
 from collections import defaultdict
 
 
@@ -87,7 +87,7 @@ def get_transforms(train):
         transforms.append(T.Resize((300, 300), antialias = True)) # no maintain aspect ratio
     transforms.append(T.ToImageTensor())
     transforms.append(T.ConvertImageDtype(torch.float))
-    transforms.append(T.SanitizeBoundingBox())
+    # transforms.append(T.SanitizeBoundingBox())
     transforms.append(T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])) # ImageNet mean and std values for normalization
     return T.Compose(transforms)
 
@@ -103,16 +103,22 @@ def create_dataloader(dataset, batch_size, shuffle=False, num_workers='auto'):
 
 #class Dataset(torch.utils.data.Dataset):  #inheriting gives errors on unpickling
 class Dataset:
-    def __init__(self, jpgfiles, jsonfiles, train:bool):
-        self.train   = train
+    def __init__(self, jpgfiles, jsonfiles, augment=False):
+        self.augment   = augment
         self.jsonfiles = jsonfiles
         self.jpgfiles  = jpgfiles
+        # self.transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+        # if self.augment:
+        #     self.transform.transforms += [
+        #         torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.02)
+        #     ]
     
     def __len__(self):
         return len(self.jpgfiles)
     
     def __getitem__(self, i):
         image, target = self.get_item(i)
+        # image = self.transform(image)
         return image, target
 
 
@@ -121,8 +127,8 @@ class DetectionDataset(Dataset):
     #IGNORE = set(['Duck_hanging'])
     #SIZE   = 300 #px
     
-    def __init__(self, jpgfiles, jsonfiles, train:bool, negative_classes:list, image_size:int=300):
-        super().__init__(jpgfiles, jsonfiles, train)
+    def __init__(self, jpgfiles, jsonfiles, augment:bool, negative_classes:list, image_size:int=300):
+        super().__init__(jpgfiles, jsonfiles, augment)
         self.negative_classes = negative_classes
         self.image_size       = image_size
     
@@ -140,18 +146,29 @@ class DetectionDataset(Dataset):
         boxes    = [box for box,label in zip(boxes, labels) if label not in self.negative_classes]
         boxes    = np.array(boxes).reshape(-1,4)
 
-        target = {}
-        target['boxes'] = dp.BoundingBox(boxes, format="XYXY", spatial_size=self.image_size)
-        target['labels'] = labels
-        target['image_id'] = torch.tensor([i])
-        target['area'] = torch.tensor([((box[3]-box[1])*(box[2]-box[0])) for box in boxes])
-        target['iscrowd'] = torch.zeros((len(boxes),), dtype=torch.int64)
+        # target = {}
+        # target['boxes'] = dp.BoundingBox(boxes, format="XYXY", spatial_size=self.image_size)
+        # target['labels'] = labels
+        # target['image_id'] = torch.tensor([i])
+        # target['area'] = torch.tensor([((box[3]-box[1])*(box[2]-box[0])) for box in boxes])
+        # target['iscrowd'] = torch.zeros((len(boxes),), dtype=torch.int64)
 
-        if self.train:
-            image, target = get_transforms(self.train)(image, target)
-        
-        return image, target
+        if self.augment:
+            image, boxes = T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
+                                    p = 0.3, side_range = (1.0, 2.0))(image)
+            image, boxes = T.RandomIoUCrop()(image)
+            image, boxes = T.Resize((self.image_size, self.image_size), antialias = True)(image) # no maintain aspect ratio
+            image, boxes = T.RandomHorizontalFlip(0.5)(image)
+        else:
+            image, boxes = T.Resize((self.image_size, self.image_size), antialias = True)(image)
+        image = T.ToImageTensor()(image)
+        image = T.ConvertImageDtype(torch.float)(image)
+        image = T.SanitizeBoundingBox()(image)
+        image = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(image) # ImageNet mean and std values for normalization
+
+        return image, {'boxes': boxes, 'labels': labels}
     
+
     @staticmethod
     def collate_fn(batchlist):
         images    = [x[0] for x in batchlist]
