@@ -172,27 +172,6 @@ def dice_entropy_loss(ypred, ytrue, alpha=0.1, weight_map=1):
     return (  dice_loss(ypred, ytrue)[:,np.newaxis, np.newaxis]*alpha 
             + torch.nn.functional.binary_cross_entropy(ypred, ytrue, reduction='none')*(1-alpha)*weight_map ).mean()
 
-class SegmentationTask(TrainingTask):
-    def training_step(self, batch):
-        x,ytrue = batch
-        x,ytrue = x.to(self.device), ytrue.to(self.device)
-        ypred   = self.basemodule(x)
-        ypred   = torch.sigmoid(ypred)
-        loss    = dice_entropy_loss(ypred, ytrue)
-        return loss, {'loss', loss.item()}
-    
-    def validation_step(self, batch):
-        x,ytrue   = batch
-        x,ytrue = x.to(self.device), ytrue.to(self.device)
-        ypred     = (self.basemodule(x) > 0).float()
-        recall    = (ypred * ytrue).sum()/(ytrue.sum()+1)
-        precision = (ypred * ytrue).sum()/(ypred.sum()+1)
-        dice      = dice_score(ypred, ytrue).mean()
-        return None, {
-            'recall'    : recall,
-            'precision' : precision,
-            'dice'      : dice,
-        }
 
 def smoothed_cross_entropy(ypred, ytrue, alpha=0.01, ignore_index=-100):
     mask  = (ytrue != ignore_index )
@@ -209,28 +188,6 @@ def low_confidence_loss(ypred, ytrue, index=-100):
     mask  = ytrue == index
     loss  = torch.nn.functional.mse_loss(ypred, torch.zeros_like(ypred), reduction='none')
     return (loss*mask[:, None]).mean()
-
-class ClassificationTask(TrainingTask):
-    def training_step(self, batch):
-        x,y   = batch
-        x,y   = x.to(self.device), y.to(self.device)
-        self.basemodule.segmentation_model.eval()
-        ypred = self.basemodule(x)
-        #loss  = torch.nn.functional.cross_entropy(ypred, y, ignore_index=-1, reduction='none')
-        loss  = smoothed_cross_entropy(ypred, y, ignore_index=-1)
-        loss += low_confidence_loss(ypred, y, index=-1)
-        return loss.mean(), {'loss': loss.item()}
-    
-    def validation_step(self, batch):
-        x,y      = batch
-        x,y      = x.to(self.device), y.to(self.device)
-        ypred    = self.basemodule(x)
-        hits     = (ypred.argmax(-1)==y)
-        return hits, {}
-    
-    def validation_epoch_end(self, hitlist):
-        accuracy = torch.cat(hitlist).float().mean()
-        return {'accuracy': accuracy.item()}
 
 
 class PrintMetricsCallback:
