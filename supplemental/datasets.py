@@ -10,7 +10,7 @@ from collections import defaultdict
 def load_image(path:str) -> PIL.Image:
     '''Load image, rotate according to EXIF orientation'''
     image = PIL.Image.open(path).convert('RGB')
-    image = PIL.ImageOps.exif_transpose(image)
+    # image = PIL.ImageOps.exif_transpose(image)
     return image
 
 # Comment out the import statement since TensorFlow is not needed for DuckNet.
@@ -25,53 +25,37 @@ def guess_encoding(x:bytes) -> str:
         return x.decode('cp1250')
 
 
-def read_json_until_imagedata(jsonfile):
-    '''LabelMe JSON are rather large because they contain the whole image additionally to the labels.
-       This function reads a jsonfile only up to the imagedata attribute (ignoring everything afterwards) to reduce the loading time.
+def read_json_annotation_data(jsonfile):
+    '''This function reads a jsonfile's annotation data in DARWIN JSON format.
        Returns a valid JSON string'''
     f = open(jsonfile, 'rb')
-    f.seek(0,2); n=f.tell(); f.seek(0,0)
-    buffer = b''
-    while b'imageData' not in buffer and len(buffer)<n:
-        data      = f.read(1024*16)
-        buffer   += data
-        if len(data)==0:
-            return buffer
-    buffer   = buffer[:buffer.index(b'imageData')]
-    buffer   = buffer[:buffer.rindex(b',')]
-    buffer   = buffer+b'}'
-    return guess_encoding(buffer)
+    data = f.read(1024*16)
+    return guess_encoding(data)
 
 
 def get_boxes_from_jsonfile(jsonfile, flip_axes=False, normalize=False):
-    '''Reads bounding boxes from a LabeLMe json file and returns them as a (Nx4) array'''
-    jsondata = json.loads(read_json_until_imagedata(jsonfile))
-    boxes    = [shape['points'] for shape in jsondata['shapes']]
-    boxes    = [[min(box[0],box[2]),min(box[1],box[3]),
-                 max(box[0],box[2]),max(box[1],box[3])] for box in np.reshape(boxes, (-1,4))]
-    boxes    = np.array(boxes)
-    boxes    = (boxes.reshape(-1,2) / get_imagesize_from_jsonfile(jsonfile)[::-1]).reshape(-1,4) if normalize else boxes
-    boxes    = boxes[:,[1,0,3,2]] if flip_axes else boxes
-    return boxes.reshape(-1,4)
+    '''Reads bounding boxes from a DARWIN json file and returns them as a (Nx4) array'''
+    jsondata = json.loads(read_json_annotation_data(jsonfile))
+    boxes = []
+    for i in range(len(jsondata['annotations'])):
+        box = [jsondata['annotations'][i]['bounding_box']['x'], 
+                jsondata['annotations'][i]['bounding_box']['y'], 
+                jsondata['annotations'][i]['bounding_box']['x']+jsondata['annotations'][i]['bounding_box']['w'], 
+                jsondata['annotations'][i]['bounding_box']['y']+jsondata['annotations'][i]['bounding_box']['h']]
+        box = np.array(box)
+        box.reshape(-1,4)
+        boxes.append(box)
+    return boxes
 
 
 def get_labels_from_jsonfile(jsonfile):
     '''Reads a list of labels in a json LabelMe file.'''
-    return [ s['label'] for s in json.loads( read_json_until_imagedata(jsonfile) )['shapes'] ]
+    return [ a['name'] for a in json.loads( read_json_annotation_data(jsonfile) )['annotations'] ]
 
 
 def get_imagesize_from_jsonfile(jsonfile):
-    f        = open(jsonfile, 'rb')
-    #skip to the last n bytes
-    filesize = f.seek(0,2)
-    n        = min(192, filesize)
-    f.seek(-n, 2)
-    buffer   = f.read()
-    idx      = buffer.rfind(b"imageHeight")
-    if idx<0:
-        raise ValueError(f'Cannot get image size: {jsonfile} does not contain image size information')
-    jsondata = json.loads( b'{'+buffer[idx-1:] )
-    return np.array([jsondata['imageHeight'], jsondata['imageWidth']])
+    jsondata = json.loads(read_json_annotation_data(jsonfile))
+    return np.array([jsondata['item']['slots'][0]['height'], jsondata['item']['slots'][0]['width']])
 
 
 def get_transforms(train):
@@ -107,11 +91,11 @@ class Dataset:
         self.augment   = augment
         self.jsonfiles = jsonfiles
         self.jpgfiles  = jpgfiles
-        # self.transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-        # if self.augment:
-        #     self.transform.transforms += [
-        #         torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.02)
-        #     ]
+        self.transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
+        if self.augment:
+            self.transform.transforms += [
+                torchvision.transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2, hue=0.02)
+            ]
     
     def __len__(self):
         return len(self.jpgfiles)
@@ -146,27 +130,24 @@ class DetectionDataset(Dataset):
         boxes    = [box for box,label in zip(boxes, labels) if label not in self.negative_classes]
         boxes    = np.array(boxes).reshape(-1,4)
 
-        # target = {}
-        # target['boxes'] = dp.BoundingBox(boxes, format="XYXY", spatial_size=self.image_size)
-        # target['labels'] = labels
-        # target['image_id'] = torch.tensor([i])
-        # target['area'] = torch.tensor([((box[3]-box[1])*(box[2]-box[0])) for box in boxes])
-        # target['iscrowd'] = torch.zeros((len(boxes),), dtype=torch.int64)
+        target = {}
+        target['boxes'] = dp.BoundingBox(boxes, format="XYXY", spatial_size=self.image_size)
+        target['labels'] = labels
 
         if self.augment:
-            image, boxes = T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
+            image, target = T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
                                     p = 0.3, side_range = (1.0, 2.0))(image)
-            image, boxes = T.RandomIoUCrop()(image)
-            image, boxes = T.Resize((self.image_size, self.image_size), antialias = True)(image) # no maintain aspect ratio
-            image, boxes = T.RandomHorizontalFlip(0.5)(image)
+            image, target = T.RandomIoUCrop()(image)
+            image, target = T.Resize((self.image_size, self.image_size), antialias = True)(image) # no maintain aspect ratio
+            image, target = T.RandomHorizontalFlip(0.5)(image)
         else:
-            image, boxes = T.Resize((self.image_size, self.image_size), antialias = True)(image)
-        image = T.ToImageTensor()(image)
-        image = T.ConvertImageDtype(torch.float)(image)
-        image = T.SanitizeBoundingBox()(image)
-        image = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(image) # ImageNet mean and std values for normalization
+            image, target = T.Resize((self.image_size, self.image_size), antialias = True)(image)
+        image, target = T.ToImageTensor()(image)
+        image, target = T.ConvertImageDtype(torch.float)(image)
+        image, target = T.SanitizeBoundingBox()(image)
+        image, target = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])(image) # ImageNet mean and std values for normalization
 
-        return image, {'boxes': boxes, 'labels': labels}
+        return image, target
     
 
     @staticmethod
@@ -178,28 +159,16 @@ class DetectionDataset(Dataset):
 
 
 
-class OOD_DetectionDataset(DetectionDataset):
-    '''Augments ducks dataset with out-of-distribution images'''
-    def __init__(self, *args, ood_files, n_ood, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.ood_files = ood_files
-        self.n_ood     = n_ood
-    
-    def __len__(self):
-        return super().__len__()+self.n_ood
-    
-    def get_item(self, i):
-        if i < super().__len__():
-            return super().get_item(i)
-        i      = np.random.randint(len(self.ood_files))
-        image  = load_image(self.ood_files[i]).resize([self.SIZE]*2)
-        return image, {'boxes':torch.as_tensor([]).reshape(-1,4), 'labels':torch.as_tensor([]).long()}
-
-
 def should_ignore_file(json_file='', ignore_list=[]):
     labels = get_labels_from_jsonfile(json_file) if os.path.exists(json_file) else []
     return any([(l in ignore_list) for l in labels])
 
+def augment_box(box, scale=25, min_size=8):
+    new_box  = box + np.random.normal(scale=scale, size=4)
+    box_size = new_box[2:] - new_box[:2]
+    if any(box_size < min_size):
+        new_box = box
+    return new_box
 
 def random_wrong_box(imagesize, true_boxes, n=15, max_iou=0.1):
     '''Tries to find a box that does not overlap with other `true_boxes`'''
