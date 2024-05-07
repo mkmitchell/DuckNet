@@ -57,7 +57,7 @@ def results_to_csv(results, export_boxes=False):
         
         for i in range(len(selectedlabels)):
             label      = selectedlabels[i]
-            confidence = result['per_class_scores'][i][label]
+            confidence = result['scores'][i]
             code       = species_codes.get(label, '')
             unsure     = 'unsure' if confidence < 0.70 else ''                                                                  #TODO: custom threshold
             
