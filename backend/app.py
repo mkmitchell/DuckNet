@@ -25,11 +25,15 @@ class App(BaseApp):
         model  = self.settings.models['detection']
         result = model.process_image(full_path)
 
-        return flask.jsonify({
-            'labels':    result['per_class_scores'],
-            'boxes':     np.array(result['boxes']).tolist(),
-            'datetime':  backend.processing.load_exif_datetime(full_path),
-        })
+        result = {
+            'boxes' : np.array(result['boxes'][result['scores']>0.6]).tolist(),
+            'labels' : np.array(result['labels'][result['scores']>0.6]).tolist(),
+            'scores' : np.array(result['scores'][result['scores']>0.6]).tolist(),
+            'datetime':  backend.processing.load_exif_datetime(full_path)
+        }
+        print(f'Model predictions are: {result}')
+
+        return flask.jsonify(result)
 
     #TODO: unify
     #override
