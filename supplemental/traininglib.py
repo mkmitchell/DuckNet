@@ -4,7 +4,7 @@ import scipy.optimize#ADDED
 
 
 class TrainingTask(torch.nn.Module):
-    def __init__(self, basemodule, epochs=10, lr=0.0001, callback=None):
+    def __init__(self, basemodule, epochs=10, lr=0.05, callback=None):
         super().__init__()
         self.basemodule        = basemodule
         self.epochs            = epochs
@@ -19,10 +19,8 @@ class TrainingTask(torch.nn.Module):
         raise NotImplementedError()
     
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=5e-4)
-        steps = [int(self.epochs*i) for i in [0.6,0.8,0.92]]
-        print('Learning rate milestones:', steps)
-        sched = torch.optim.lr_scheduler.MultiStepLR(optim, steps, gamma=0.1)
+        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.0001)
+        sched = torch.optim.lr_scheduler.StepLR(optim, step_size = 3, gamma=0.1)
         return optim, sched
     
     @property
