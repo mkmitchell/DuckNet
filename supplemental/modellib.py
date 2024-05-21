@@ -109,9 +109,9 @@ class DuckDetector(torch.nn.Module):
     def start_training_detector(
         self, 
         imagefiles_train,           jsonfiles_train,
-        imagefiles_test   = None,   jsonfiles_test = None, 
+        # imagefiles_test   = None,   jsonfiles_test = None, 
         lr                = 0.05,   epochs         = 10,     
-        callback       = None,      num_workers    = 'auto',
+        callback       = None,      num_workers    = 0,
     ):
 
         
@@ -122,9 +122,9 @@ class DuckDetector(torch.nn.Module):
         dl_train = datasets.create_dataloader(ds_train, batch_size=8, shuffle=True, num_workers=num_workers)
         
         dl_test  = None
-        if imagefiles_test is not None:
-            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=False)
-            dl_test  = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
+        # if imagefiles_test is not None:
+        #     ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=False)
+            # dl_test  = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
         
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
         ret  = task.fit(dl_train, dl_test, epochs=epochs)
