@@ -1,0 +1,26 @@
+
+{% macro boxes_overlay() %}
+<div class="boxes overlay"></div>
+{% endmacro %}
+
+{% macro boxes_overlay_template(app) %}
+<template id="box-overlay-template">
+<div class="box-overlay" 
+     index="${index}"
+     style="top:${box[0]*100}%;        left:${box[1]*100}%; 
+            bottom:${100-box[2]*100}%; right:${100-box[3]*100}%;">
+    
+    <div class="box-label-container"  data-position="left center" data-variation="mini">
+      <p class="box-label" onclick="{{app}}.Boxes.convert_boxlabel_into_input(event)">
+        ${label}
+      </p>
+
+      <select class="ui tiny search dropdown" style="display:none;"></select>
+      <i class="close red icon" title="Remove" onclick="{{app}}.Boxes.on_remove_box_button(event)"></i>
+    </div>
+
+    <div class="drag-anchor move-anchor"></div>
+    <div class="drag-anchor resize-anchor"></div>
+</div>
+</template>
+{% endmacro %}

@@ -1,0 +1,104 @@
+.stripes {
+    background-color: rgb(240,240,240);
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,.5) 5px, rgba(255,255,255,.5) 7px);
+}
+
+.checkerboard {
+    background-color: rgb(240,240,240);
+    background-image: linear-gradient(45deg, white 25%, transparent 25%, transparent 75%, white 75%, white),
+    linear-gradient(45deg, white 25%, transparent 25%, transparent 75%, white 75%, white);
+    background-size: 10px 10px;
+    background-position: 0 0, 5px 5px;
+}
+
+.ui.table td.active, .ui.table tr.active { 
+    background: #fff!important;
+}
+
+.unselectable {                        /*TODO: firefox bug*/
+    user-drag: none; 
+    user-select: none;
+    -moz-user-select: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+  }
+
+.pixelated {
+    -ms-interpolation-mode: nearest-neighbor;
+    image-rendering: pixelated;
+}
+
+.image-container{
+    display:         flex;
+    align-items:     center;
+    justify-content: space-around;
+    width:100%;
+    height:calc(100vh - 120px);
+}
+
+img.result-image {
+    /* gray at the start; changed in JS as soon as a result is available */
+    filter:contrast(0.0);
+}
+
+.result.view-box {
+    /* don't show by default; changed in JS */
+    display:none;
+}
+
+.view-box {
+    /* content moves around, don't show outside of the borders */
+    overflow: hidden;
+    /* act as anchor for position:absolute overlays inside */
+    position: relative;
+
+    width:  100%;
+    height: 100%;
+    display:flex;
+    justify-content: center;
+    align-items:     center;
+    margin-left:     2px;
+    margin-right:    2px;
+}
+
+
+.set-aspect-ratio-manually {
+    /* keep aspect ratio; --imagewidth & --imageheight are set on image load */
+    max-width: calc( (100vh - 120px) * var(--imagewidth) / var(--imageheight) ); 
+    width:100%;
+}
+
+.transform-box img {
+    /* transform-box receives all events, not children images */
+    pointer-events: none;
+}
+
+.overlay {
+    position:absolute;
+    left:  0;
+    top:   0; 
+    width: 100%;
+    height:100%;
+}
+
+img.overlay {
+    filter:url(#black-to-transparent)
+}
+
+
+.page-wide {
+    width: calc(100% - 40px)!important;
+}
+
+#main-container {
+    padding-bottom: 50vh;
+}
+
+#training-tab {
+    display:grid; 
+    height:200px; 
+    grid-template-columns: 50% 50%; 
+    grid-column-gap: 5px; 
+    align-items: start;
+}

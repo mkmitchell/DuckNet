@@ -1,0 +1,147 @@
+
+<!--------- INCLUDE base/js_templates.html START---------->
+{% import 'base/boxes.html'        as base_boxes   %}
+{% import 'base/content_menu.html' as content_menu %}
+
+{% macro loading_spinner() %}
+<!--------- MACRO loading_spinner() START---------->
+<div class="loading-message" style="display:flex;justify-content: center;">
+  <i class="spinner loading icon"></i>
+  Loading...
+</div>
+<!--------- MACRO loading_spinner() END  ---------->
+{% endmacro %}
+
+
+{% macro image_overlay(name) %}
+<img class="{{name}} overlay unselectable pixelated"  draggable="false">
+{% endmacro %}
+
+{% macro image_and_boxes_overlay(name) %}
+  {{ image_overlay(name) }}
+  {{ base_boxes.boxes_overlay() }}
+{% endmacro %}
+
+{% macro content_image(name, overlay="", viewcontrols="ViewControls") %}
+<!--------- MACRO content_image() START---------->
+<div class="{{name}} view-box stripes" ondblclick="{{ viewcontrols }}.on_viewbox_dblclick(event)">
+    <div class="transform-box unselectable set-aspect-ratio-manually" style="transform: matrix(1,0,0,1,0,0);"
+      {% if viewcontrols -%}
+          onmousedown="{{ viewcontrols }}.on_transformbox_mousedown(event)"
+          onmousemove="{{ viewcontrols }}.on_transformbox_mousemove(event)"
+          onwheel    ="{{ viewcontrols }}.on_transformbox_wheel(event)"
+      {%- endif %}
+    >
+      <img class="{{name}}-image unselectable" style="width:100%;" draggable="false">
+      {% if overlay -%}
+        {{ overlay | indent(8) }}
+      {%- endif %}
+  </div>
+</div>
+<!--------- MACRO content_image() END---------->
+{% endmacro %}
+
+
+
+{% macro progress_dimmer() %}
+<!--------- MACRO progress_dimmer() START---------->
+<div class="ui dimmer">
+  <div class="content processing">
+    <h2 class="ui inverted icon header">
+      <i class="spinner loading icon"></i>
+      <p>Processing...</p>
+    </h2>
+  </div>
+  <div class="content failed" style="display:none">
+    <h2 class="ui inverted icon header">
+      <p>Processing failed</p>
+    </h2>
+    <p>Click to continue</p>
+  </div>
+</div>
+<!--------- MACRO progress_dimmer() END---------->
+{% endmacro %}
+
+
+
+{% macro filetable_content(app, view_menu_kwargs={'show_results_checkbox':True}) %}
+<div class="filetable-content" style="display:none">
+    {{ content_menu.content_menu(
+            callback_on_process        = app+".Detection.on_process_image",
+            callback_apply_corrections = None,
+            callback_new_box           = app+".Boxes.on_draw_new_box_button",
+            callback_download          = app+".Download.on_single_item_download_click",
+            view_menu_kwargs           = view_menu_kwargs
+    ) | indent }}
+
+    <div class="image-container">
+      {{ content_image(
+          name           = "input",  
+          overlay        = image_and_boxes_overlay("input"),
+          viewcontrols   = app+".ViewControls"
+        ) | indent(8) }}
+      {{ progress_dimmer() }}
+    </div>
+</div>
+{% endmacro %}
+
+
+{% macro status_icons() %}
+<i class="image outline   unprocessed status icon"></i>
+<i class="image             processed status icon" style="display:none"></i>
+<i class="yellow exclamation triangle status icon" style="display:none"></i>
+<i class="loading spinner             status icon" style="display:none"></i>
+{% endmacro %}
+
+
+{% macro filetable_row_template(app="BaseApp", content=filetable_content, extra_columns="") %}
+<template id="filetable-row-template">
+    <tr class="ui title table-row" filename="${filename}">
+        <!-- table row -->
+        <td>
+            <i class="dropdown icon"></i>
+            {{ status_icons()         | indent(8) }}
+            <label>${filename}</label>
+        </td>
+        {{ extra_columns }}
+    </tr>
+    <tr style="display:none" filename="${filename}">
+        <!-- content -->
+        <td class="ui content" style="padding:0px;"  colspan="10000">
+            {{ loading_spinner()      | indent(8) }}
+            {{ content(app)           | indent(8) }}
+        </td>
+    </tr>
+</template>
+
+{{ base_boxes.boxes_overlay_template(app) }}
+
+
+{# TODO: put somewhere else #}
+<svg height="0">
+  <defs>
+    <filter id="black-to-transparent">
+      <!-- image filter to set alpha=0 where the image is black -->
+      <feColorMatrix in="SourceGraphic"
+          type="matrix"
+          values="1 0 0 0 0
+                  0 1 0 0 0
+                  0 0 1 0 0
+                  255 255 255 0 0" />
+     </filter>
+
+     <filter id="white-to-red">
+      <feColorMatrix in="SourceGraphic"
+          type="matrix"
+          values="1 1 1 0 0
+                  0 0 0 0 0
+                  0 0 0 0 0
+                  0 0 0 1 0" />
+     </filter>
+  </defs>
+</svg>
+{% endmacro  %}  {# end filetable_row_template #}
+
+
+
+<!--------- INCLUDE base/js_templates.html END---------->

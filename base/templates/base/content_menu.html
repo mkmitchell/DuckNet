@@ -1,0 +1,117 @@
+
+{% macro results_layout() %}
+<!--------- MACRO results_layout() START---------->
+<div class="header">
+  Show Results As
+</div>
+<div class="item active overlay-item" onclick="show_results_as_overlay('${filename}')">
+  <i class="layer group icon"></i>
+  Overlay
+</div>
+<div class="item side-by-side-item" onclick="show_results_side_by_side('${filename}')">
+  <i class="columns icon"></i>
+  Side-by-Side
+</div>
+<div class="divider"></div>
+<!--------- MACRO results_layout() END  ---------->
+{% endmacro %}
+
+{% macro results_checkbox() %}
+<div class="ui item disabled checkbox show-results-checkbox">
+  <input type="checkbox">
+  <label style="padding-top:2px;">Show results</label>
+</div>
+<div class="divider"></div>
+{% endmacro %}
+
+
+{% macro view_menu(show_results_checkbox=False, extras='', brightness_max=30) %}
+<!--------- MACRO view_menu() START---------->
+<div class="menu view-menu">
+  {% if show_results_checkbox -%}
+    {{ results_checkbox() | indent }}
+  {%- endif %}
+
+  {% if brightness_max -%}
+  <div class="item brightness">
+    <i class="sun icon"></i>
+    Brightness
+    <div class="ui slider brightness-slider" style="padding:0px; padding-top:5px;"></div>
+    <after-insert-script style="display:none"> $(`.brightness-slider`).slider({
+      onMove:on_brightness_slider, 
+      max:{{ brightness_max }} 
+    }).slider('set value', 10); </after-insert-script>
+  </div>
+  {%- endif %}
+
+  {% if extras -%}
+    <div class="divider"></div>
+    {{ extras | indent }}
+  {%- endif %}
+</div>
+<!--------- MACRO view_menu() END  ---------->
+{% endmacro %}
+
+
+{% macro base_help() %}
+<div class="ui segment flowing popup">
+  <ul class="ui list">
+    <li><b>SHIFT + Drag</b> to move the image</li>
+    <li><b>SHIFT + Mouse wheel</b> to zoom</li>
+    <li><b>SHIFT + Double-click</b> to reset</li>
+  </ul>
+</div>
+<after-insert-script style="display:none">$(`.help-menu-button`).popup({hoverable:false});</after-insert-script>
+{% endmacro %}
+
+
+
+{% macro content_menu(
+  callback_on_process        = "",
+  callback_apply_corrections = "",
+  callback_new_box           = "",
+  callback_download          = "",
+  edit_segmentation_item     = None,
+  view_menu_kwargs           = {},
+  help_popup                 = base_help()
+) %}
+<!--------- MACRO content_menu() START---------->
+<div class="ui bottom attached secondary icon menu" style="border-top-width:0px; margin-bottom:0px;">
+    <a class="process item" onclick="{{ callback_on_process }}(event)" data-tooltip="Process Image" data-position="bottom left">
+      <i class="play icon"></i>
+    </a>
+
+    <div class="ui simple dropdown icon item view-menu-button">
+      <i class="eye icon"></i>
+      {{ view_menu(**view_menu_kwargs) | indent(8)}}
+    </div>
+
+    {% if edit_segmentation_item -%}
+      {{ edit_segmentation_item }}
+    {%- endif %}
+
+    {% if callback_apply_corrections -%}
+    <a class="item" onclick="{{ callback_apply_corrections }}(event)" data-tooltip="Apply manual corrections" data-position="bottom left">
+      <i class="check icon"></i>
+    </a>
+    {%- endif %}
+
+    {% if callback_new_box -%}
+    <a class="item new-box" onclick="{{ callback_new_box }}(event)"  data-tooltip="Add new box" data-position="bottom left">
+      <i class="vector square icon"></i>
+    </a>
+    {%- endif %}
+
+    {% if callback_download -%}
+    <a class="disabled download item" onclick="{{ callback_download }}(event)" data-tooltip="Download Result" data-position="bottom left">
+      <i class="download icon"></i>
+    </a>
+    {%- endif %}
+
+    {% if help_popup -%}
+    <a class="item help-menu-button"><i class="help icon"></i></a>
+    {{ help_popup }}
+    {%- endif %}
+</div>
+<!--------- MACRO content_menu() END  ---------->
+{% endmacro %} {# end content_menu #}
