@@ -62,23 +62,6 @@ def create_df_from_jsonfile(jsonfiles) -> pd.DataFrame:
             df = df.append({'image_name': img_name, 'labels': labels[i], 'boxes': boxes[i]}, ignore_index = True)
     return df
 
-def get_augments(train):
-    transforms = []
-    if train:
-        transforms.append(T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
-                                          p = 0.3,
-                                          side_range = (1.0, 2.0)))
-        transforms.append(T.RandomIoUCrop())
-        transforms.append(T.Resize((300, 300), antialias = True)) # no maintain aspect ratio
-        transforms.append(T.RandomHorizontalFlip(0.5))
-    else:
-        transforms.append(T.Resize((300, 300), antialias = True)) # no maintain aspect ratio
-    transforms.append(T.ToImageTensor())
-    transforms.append(T.ConvertImageDtype(torch.float))
-    transforms.append(T.SanitizeBoundingBox())
-    transforms.append(T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])) # ImageNet mean and std values for normalization
-    return T.Compose(transforms)
-
 
 def create_dataloader(dataset, batch_size, shuffle:bool, num_workers=0):
     return torch.utils.data.DataLoader(dataset, 
@@ -129,9 +112,23 @@ class DetectionDataset(torch.utils.data.Dataset):
         target['image_id'] = torch.tensor([idx])
         target['area'] = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         target['iscrowd'] = torch.zeros((len(labels),), dtype=torch.int64)
-        
+
+        augments = []
         if self.augment is not None:
-            image, target = self.augment(image, target)
+            augments.append(T.RandomZoomOut(fill = defaultdict(lambda: 0, {dp.Image: (255, 20, 147)}),
+                                          p = 0.3,
+                                          side_range = (1.0, 2.0)))
+            augments.append(T.RandomIoUCrop())
+            augments.append(T.Resize((300, 300), antialias = True)) # no maintain aspect ratio
+            augments.append(T.RandomHorizontalFlip(0.5))
+        else:
+            augments.append(T.Resize((300, 300), antialias = True)) # no maintain aspect ratio
+        augments.append(T.ToImageTensor())
+        augments.append(T.ConvertImageDtype(torch.float))
+        augments.append(T.SanitizeBoundingBox())
+        augments.append(T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])) # ImageNet mean and std values for normalization
+        augments = T.Compose(augments)
+        image, target = augments(image, target)
 
         return image, target
 
@@ -141,5 +138,8 @@ class DetectionDataset(torch.utils.data.Dataset):
 
 
     @staticmethod
-    def collate_fn(batch):
-        return tuple(zip(*batch))
+    def collate_fn(batchlist):
+        images    = [x[0] for x in batchlist]
+        images    = torch.stack(images)
+        targets   = [x[1] for x in batchlist]
+        return images, targets
