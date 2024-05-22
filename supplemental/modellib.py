@@ -63,8 +63,7 @@ class DuckDetector(torch.nn.Module):
         x = T.Resize((300,300))(x)
         x = T.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])(x)
         with torch.no_grad():
-            self.eval()
-            output = self.forward(x)[0]
+            output = self.eval().forward(x)[0]
 
         boxes = output['boxes']
         # rescale boxes to original image size
