@@ -9,6 +9,7 @@ class Settings:
     def __init__(self):
         self.models        = dict()  #python objects
         self.active_models = dict()  #modelnames
+        self.confidence_threshold = 50.0
         self.set_settings( self.load_settings_from_file(), save=False )
 
     @classmethod
@@ -34,6 +35,7 @@ class Settings:
         for modeltype, modelname in s.get('active_models', {}).items():
             if self.active_models.get(modeltype, None) != modelname:
                 self.models[modeltype] = self.load_model(modeltype, modelname)
+        self.confidence_threshold = s['confidence_threshold']
         self.__dict__.update( copy.deepcopy(s) )
 
         if save:

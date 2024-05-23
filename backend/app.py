@@ -5,6 +5,7 @@ import backend.training
 import os
 import flask
 import numpy as np
+import json
 
 
 class App(BaseApp):
@@ -23,10 +24,15 @@ class App(BaseApp):
         
         print(f'Processing image with model {self.settings.active_models["detection"]}')
         model  = self.settings.models['detection']
-        result = model.process_image(full_path)
-        print(f'Model predictions are: {result}')
-
-        return flask.jsonify(result)
+        result = model.process_image(full_path, self.settings.confidence_threshold)
+        print('Model predictions are:', result)
+        jsonresult = {
+            'labels': result['labels'],
+            'boxes': result['boxes'].tolist(),
+            'datetime': backend.processing.load_exif_datetime(full_path)
+        }
+        print(jsonresult)
+        return flask.jsonify(jsonresult)
 
     #TODO: unify
     #override

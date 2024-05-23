@@ -34,7 +34,6 @@ DuckDetection = class extends BaseDetection {
         let   texts = []
         for (let i = 0; i < n; i++) {
             let   label      = duckresults.labels[i];
-            console.log('label ' +label)
             const confidence = Object.values(duckresults.predictions[i])[0]
             if(!label || (label.toLowerCase()=='other spp.')){
                 if(confidence > hiconf_threshold)
@@ -44,7 +43,7 @@ DuckDetection = class extends BaseDetection {
                     label = 'Other Spp.'
             }
             
-            let   text       = `${label}(${(confidence*100).toFixed(0)}%)`
+            let text = `${label}(${(confidence*100).toFixed(0)}%)`
             console.log('text ' + text)
             if(confidence > hiconf_threshold)
                   text       = `<b>${text}</b>`
