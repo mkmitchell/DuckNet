@@ -1,0 +1,38 @@
+{% from 'base/detection_tab.html'    import detection_tab as base_detection_tab %}
+{% from 'base/training_tab.html'     import training_tab as base_training_tab %}
+
+
+{% macro base_tabs() %}
+<div class="ui pointing secondary tabs menu">
+    <a class="active item" data-tab="detection">Detection</a>
+    <a class="item"        data-tab="training"> Training </a>
+</div>
+{% endmacro %}
+
+
+{% macro main_container(
+    app,
+    tabs          = base_tabs(),
+    detection_tab = base_detection_tab(app),
+    training_tab  = base_training_tab(app),
+    extra         = ""
+) %}
+<div class="ui hidden section divider"></div> <!--whitespace-->
+<div class="ui container page-wide" id="main-container">
+
+    {{ tabs | indent }}
+
+    <div class="ui active tab segment unselectable" data-tab="detection" style="padding:0">
+        {{ detection_tab    | indent(8) }}
+    </div>
+
+    <div class="ui bottom attached tab" data-tab="training">
+        {{ training_tab     | indent(8)  }}
+    </div>
+
+    {{ extra | indent }}
+
+</div>
+{% endmacro %}
+
+

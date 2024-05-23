@@ -1,0 +1,33 @@
+<!--{{warning}}-->
+
+{% import 'base/js_templates.html' as js_templates %}
+{% from 'base/top_menu.html'       import top_menu %}
+{% from 'base/main_container.html' import main_container %}
+{% import 'base/modals.html'       as modals %}
+
+{% set app = "BaseApp" %}
+
+<html>
+<head>
+    <title>DigIT Base UI</title>
+    {# TODO: indent #}
+    {% include 'base/scripts.html'   %}
+
+    {{ js_templates.filetable_row_template(app) | indent }}
+</head>
+
+
+<body onload="{{app}}.init()">
+
+    {{ top_menu(app)        | indent }}
+
+    {{ main_container(app)  | indent }}
+
+    {{ modals.modal_settings() }}
+    {{ modals.modal_training_progress() }}
+    {{ modals.modal_loading_files_progress() }}
+
+    {# TODO: footer #}
+
+</body>
+</html>

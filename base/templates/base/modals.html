@@ -1,0 +1,87 @@
+{% macro known_classes_properties() %}
+<div class="ui labels known-classes" style="padding-top:5px;">
+  <b>Known classes:</b>
+  <!-- <div class="ui label">Classname</div> -->
+</div>
+{% endmacro %}
+
+{% macro modal_settings() %}
+<!-- Settings -->
+<div class="ui tiny modal" id="settings-dialog">
+    <i class="close icon"></i>
+    <div class="header"> Settings </div>
+  
+    <div class="ui form content">
+
+        <div class="field">
+            <label>Active Model</label>
+            <div class="ui dropdown selection" id="settings-active-model">
+              <input type="hidden" name="active-model">
+              <i class="dropdown icon"></i>
+              <div class="default text">model</div>
+              <div class="menu">
+                <!--<div class="item" data-value="1">model_1</div>
+                <div class="item" data-value="0">model_2</div>-->
+              </div>
+            </div>
+
+            {{ known_classes_properties() }}
+            <div class="ui divider"></div>
+        </div>
+
+
+        <div class="actions">
+            <div class="ui negative button">
+            Cancel
+            </div>
+            <div class="ui positive right labeled icon button" id="settings-ok-button">
+            Save
+            <i class="checkmark icon"></i>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+
+{% macro modal_training_progress() %}
+<!-- Training progress -->
+<div class="ui tiny modal" id="training-modal">
+  <div class="header"> Training </div>
+
+  <div class="ui form content">
+    <div class="ui progress">
+      <div class="bar">
+        <div class="progress"></div>
+      </div>
+      <div class="label">Training Progress</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <div class="ui negative button" id="cancel-training-button">
+      Stop Training
+    </div>
+    <div class="ui positive button hidden" id="ok-training-button">
+      Ok
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+
+{% macro modal_loading_files_progress() %}
+<!-- Training progress -->
+<div class="ui tiny modal" id="loading-files-modal">
+  <div class="ui form content">
+    <div class="ui progress">
+      <div class="bar">
+        <div class="progress"></div>
+      </div>
+      <div class="label">Loading Files</div>
+    </div>
+  </div>
+
+</div>
+{% endmacro %}
+

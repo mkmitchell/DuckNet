@@ -1,0 +1,250 @@
+{% macro training_filetable() %}
+<table class="ui basic celled sortable unstackable table" id="training-filetable" style="grid-row: 1 / 3">
+    <thead>
+      <tr>
+        <th>Selected files for training</th>
+      </tr>
+    </thead>
+    <tbody id="training-selected-files">
+      {#  "training-filetable-row" inserted here from javascript  #}
+    </tbody>
+</table>
+
+<template id="training-filetable-row">
+  <tr filename="${filename}">
+    <td>
+      <div class="ui checkbox">
+        <input type="checkbox" name="select-file" checked>
+        <label>${filename}</label>
+      </div>
+    </td>
+  </tr>
+</template>
+{% endmacro %} {# training_filetable #}
+
+
+{% macro save_model_field(trainingmodule) %}
+<div class="ui segment form" id="training-new-modelname-field" style="display:none">
+  <div class="ui field">
+    <!--<div class="ui divider"></div>-->
+    <label>Save trained model</label>
+    <div class="ui action input">
+      <input type="text" placeholder="New model name" id="training-new-modelname">
+      <button class="ui violet right labeled icon button" onclick="{{trainingmodule}}.on_save_model()">
+        <i class="save icon"></i>
+        Save Model
+      </button>
+    </div>
+  </div>
+</div>
+{% endmacro %} {# save_model_field #}
+
+
+
+
+{% macro train_detector_checkbox(positive_class, negative_class) %}
+<div class="inline field">
+  <div class="ui toggle checkbox" id="train-detector-checkbox">
+    <input type="checkbox" class="hidden">
+    <label>Train detector</label>
+  </div>
+</div>
+
+<table class="ui fixed celled table" id="detector-classes">
+  <tbody>
+    <tr>
+      <td data-label="Type">{{ positive_class }}</td>
+      <td id="detector-positive-classes-count">0</td>
+    </tr>
+    <tr>
+      <td>{{ negative_class }}</td>
+      <td id="detector-negative-classes-count">0</td>
+    </tr>
+  </tbody>
+</table>
+{% endmacro %}
+
+
+
+
+<!-- {% macro train_classifier_checkbox() %}
+<div class="inline field">
+  <div class="ui toggle checkbox" id="train-classifier-checkbox">
+    <input type="checkbox" class="hidden">
+    <label>Train classifier</label>
+  </div>
+</div>
+
+<table class="ui fixed celled table" id="classifier-classes">
+  <thead>
+      <tr>
+          <th>Classes of interest</th>
+          <th id="classes-of-interest-count">0</th>
+      </tr>
+  </thead>
+  <tbody>
+    <tr>
+          <td>Class name</td>
+          <td>999</td>
+      </tr>
+  </tbody>
+
+  <thead>
+      <tr>
+          <th>Other classes</th>
+          <th id="other-classes-count">0</th>
+      </tr>
+  </thead>
+
+  <thead>
+      <tr>
+          <th>Unknown classes</th>
+          <th id="unknown-classes-count">0</th>
+      </tr>
+  </thead>
+
+  <thead>
+      <tr>
+          <th>Rejected classes</th>
+          <th id="rejected-classes-count">0</th>
+      </tr>
+  </thead>
+</table>
+{% endmacro %} -->
+
+
+
+
+
+
+{% macro lr_epochs_fields(default_lr=0.001, default_epochs=10, label=None) %}
+<div class="field" id="training-learning-rate-field">
+  {% if label != None -%}
+  <label>{{label}}</label>
+  {%- endif %}
+  <div class="ui input" id="settings-micrometers">
+      <label style="padding:10px; width:50%;">Learning rate:</label>
+      <input type="number" step="0.0001" min="0.00001" style="width: 5ch;" value="{{default_lr}}" id='training-learning-rate'>
+  </div>
+</div>
+<div class="field" id="training-number-of-epochs-field">
+  <div class="ui input" id="settings-micrometers">
+      <label style="padding:10px; width:50%;">Number of epochs:</label>
+      <input type="number" step="1" min="1" style="width: 5ch;" value="{{default_epochs}}" id='training-number-of-epochs'>
+  </div>
+</div>
+{% endmacro %}
+
+
+
+
+
+{% macro starting_point_model_infobox() %}
+<div class="ui hidden message" id="training-model-info-message">
+  <p>Starting point for retraining: <b id="training-model-info-label">xxx</b></p>
+</div>
+{% endmacro %}
+
+
+
+
+
+
+{% macro training_controls(trainingmodule="") %}
+<div class="ui segment form" style="margin-top:0px;">
+    {{ starting_point_model_infobox() }}
+
+    <label class="ui violet basic fluid button" onclick="{{trainingmodule}}.on_start_training()" id="start-training-button" style="margin-bottom: 20px;">
+      <i class="shuffle icon"></i>
+      Start Training
+    </label>
+
+</div>
+
+{{ save_model_field(trainingmodule) | indent }}
+{% endmacro %} {# training_controls #}
+
+
+
+{% macro start_training_button(trainingmodule) %}
+<label class="ui violet basic fluid button" onclick="{{ trainingmodule }}.on_start_training()" id="start-training-button" style="margin-bottom: 20px;">
+  <i class="shuffle icon"></i>
+  Start Training
+</label>
+{% endmacro %}
+
+
+
+
+
+{% macro class_selection_controls(others=True, unknowns=True) %}
+<div class="ui segment form" style="margin-top:0px;   grid-row: 1 / 3" id="class-selection-form">
+    <div class="field" id="training-model-type-field">
+        <h4 class="ui dividing header">Class selection</h4>
+
+
+        <div class="ui form content">
+            <div class="field">
+                <label>Classes of interest</label>
+                <div class="ui multiple selection fluid dropdown" id="classes-of-interest-dropdown">
+                    <input type="hidden" name="language">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Select Classes</div>
+                    <div class="menu" id="classes-of-interest-list">
+                        <!-- <div class="item"> Banana </div> -->
+                    </div>
+                </div>
+            </div>
+            <div class="ui divider"></div>
+    
+            <div class="field" style="display:{{ none if others==False else  inherit}}">
+                <label>Other classes</label>
+                <div class="ui multiple selection fluid dropdown" id="other-classes-dropdown">
+                    <input type="hidden" name="language">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Select Classes</div>
+                    <div class="menu" id="other-classes-list">
+                        <!-- <div class="item"> Banana </div> -->
+                    </div>
+                </div>
+                <div class="ui divider"></div>
+            </div>
+    
+            <div class="field" style="display:{{ none if unknowns==False else  inherit}}">
+                <label>Unknown classes</label>
+                <div class="ui multiple selection fluid dropdown" id="unknown-classes-dropdown">
+                    <input type="hidden" name="language">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Select Classes</div>
+                    <div class="menu" id="unknown-classes-list">
+                        <!-- <div class="item"> Banana </div> -->
+                    </div>
+                </div>
+                <div class="ui divider"></div>
+            </div>
+    
+            <div class="field">
+                <label>Rejected classes</label>
+                <div class="ui labels" id="rejected-classes-list">
+                    <!-- <div class="ui label"> Banana </div> -->
+                </div>
+            </div>
+
+            <div class="ui divider"></div>
+        </div>
+    </div>
+</div>
+<script> $('#class-selection-form .dropdown').dropdown({clearable:false}) </script>
+{% endmacro %}
+
+
+
+
+{% macro training_tab(app) %}
+<div id="training-tab">
+    
+    {{ training_filetable() }}
+    {{ training_controls(trainingmodule = app+".Training") }}
+    
+</div>
+{% endmacro %}

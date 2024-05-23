@@ -1,0 +1,76 @@
+
+{% macro filetable_menu(
+    callback_on_process_all     = "",
+    callback_on_cancel          = "",
+    callback_on_download_all    = "",
+    download_menu               = None
+) %}
+
+<div class="ui top attached menu" style="border-top-width:0px;">
+    <a class="process-all item" onclick="{{ callback_on_process_all }}(event)">
+        <i class="blue play icon"></i>
+        Process All
+    </a>
+    <a class="processing item" style="display:none">
+        <i class="loading spinner icon"></i>
+        Processing...
+    </a>
+    <a class="cancel-processing item" onclick="{{ callback_on_cancel }}(event)"  style="display:none">
+        <i class="red times icon"></i>
+        Cancel
+    </a>
+    {% if download_menu -%}
+        {{ download_menu | indent }}
+    {% else %}
+    <div class="ui simple dropdown download-all item" onclick="{{ callback_on_download_all }}(event)">
+        <i class="download icon"></i>
+        Download All
+    </div>
+    {%- endif %}
+</div>
+{% endmacro %}
+
+
+
+{% macro main_table_head(app, sortable=False) %}
+{% set sort_callback = app+'.Sorting.on_table_header(event)' if sortable else ''  %}
+<thead>
+    <tr>
+        <th class="sixteen wide" onclick="{{ sort_callback }}" id="files-loaded-column-header">
+            No Files Loaded
+        </th>
+    </tr>
+</thead>
+{% endmacro %}
+
+
+
+{% macro base_main_table(app, sortable=False, table_head=main_table_head(app, sortable)) %}
+{% set sort_class    = 'sortable'                            if sortable else ''  %}
+<table class="ui fixed celled {{ sort_class }} unstackable table accordion" id="filetable" style="border:0px; margin-top:0px;">
+    {{ table_head }}
+    <tbody>
+        {# #filetable-row-template inserted here from javascript #}
+    </tbody>
+</table>
+{% endmacro %}
+
+
+
+{% macro detection_tab(
+    app, 
+    main_table              = base_main_table(app), 
+    filetable_download_menu = None
+)
+%}
+<!-- MACRO detection_tab() START -->
+{{ filetable_menu(
+        callback_on_process_all  = app+".Detection.on_process_all",
+        callback_on_cancel       = app+".Detection.on_cancel_processing",
+        callback_on_download_all = app+".Download.on_download_all",
+        download_menu            = filetable_download_menu
+    ) }}
+{{ main_table }}
+
+<!-- MACRO detection_tab() END -->
+{% endmacro %}

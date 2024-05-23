@@ -1,0 +1,98 @@
+.box-overlay {
+    position:         absolute;
+    border:           2px solid #fff;
+    background-color: rgba(255,255,255,0.0);
+}
+
+.box-overlay:hover {
+    background-color: rgba(255,255,255,0.5);
+}
+
+.box-overlay .box-label-container {
+    position:         absolute; 
+    display:          flex; 
+    top:              -20px; 
+    height:            20px; 
+    width:            calc(100% + 4px);
+    min-width:        fit-content;
+    left:             -2px; 
+    right:            -2px;
+    background-color:#ffffffbb;
+    border:            0;
+}
+
+.box-overlay .close.red.icon {
+    visibility:       hidden;
+    cursor:           pointer;
+    margin-top:       3px;
+    margin-right:     0px;
+    margin-left:      auto;
+    padding-left:     3px;
+}
+
+.box-overlay:hover .close.red.icon {
+    visibility:       visible;
+}
+
+.box-overlay div.ui.tiny.search.dropdown.selection {
+    background-color: rgba(0,0,0,0);
+    border:           0;
+    border-radius:    0;
+    min-width:        100%;
+    min-height:       20px;
+    position:         absolute;
+}
+
+.box-overlay .menu.transition {
+    border:           0!important;
+    border-radius:    0!important;
+    margin-left:      0!important;
+    min-width:        100%!important;
+    width:            100%!important;
+}
+
+.boxes.overlay .box-overlay .menu.transition .item {
+    padding:           4px!important;      /*FIXME: doesnt work*/
+    height:            unset;
+    min-height:        unset;
+}
+
+.box-overlay p.box-label, .box-overlay input.search {
+    padding:          0!important;
+    font-weight:      bold!important;
+    font-size:        14px!important;
+    user-select:      none;
+    color:          gray!important;
+    left:             0px!important;
+    bottom:           1px!important;
+    white-space:      nowrap;
+}
+
+.box-overlay i.dropdown.icon {
+    display:          none;
+}
+
+.box-overlay .drag-anchor {
+    background-color:gray;
+    position:          absolute;
+    display:           none;
+    height:            10px;
+    width:             10px;
+}
+
+.box-overlay:hover .drag-anchor {
+    display:           unset;
+}
+
+.box-overlay .drag-anchor.move-anchor {
+    cursor:            move;
+    top:               calc(50% - 5px);
+    left:              calc(50% - 5px);
+}
+
+.box-overlay .drag-anchor.resize-anchor {
+    cursor:            se-resize;
+    bottom:            -5px;
+    right:             -5px;
+}
+

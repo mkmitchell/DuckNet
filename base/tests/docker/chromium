@@ -1,0 +1,4 @@
+#!/bin/bash
+
+DISPLAY=:99 /root/chromium/AppRun --no-sandbox  $@
+

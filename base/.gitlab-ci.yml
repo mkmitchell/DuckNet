@@ -1,0 +1,19 @@
+stages:          # List of stages for jobs, and their order of execution
+  - test
+
+
+test-job:
+  image: git.igd-r.fraunhofer.de:4567/digit/digit-base-ui:latest
+  stage: test
+  tags:
+    - ubuntu
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+    INSTANCE_PATH: $CI_PROJECT_DIR
+    ROOT_PATH:     $CI_PROJECT_DIR
+    PYTHONPATH:    $CI_PROJECT_DIR
+  script:
+    - ls -a
+    - pwd
+    - env | grep `pwd`
+    - ./run_tests.sh -x

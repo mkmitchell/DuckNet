@@ -3,7 +3,7 @@ builds
 TESTDATA
 static
 cache
-models
+basemodel.pt.zip
 tests/logs
 sync_models.py
 venv
