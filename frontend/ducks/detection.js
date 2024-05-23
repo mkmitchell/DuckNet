@@ -15,7 +15,7 @@ DuckDetection = class extends BaseDetection {
         
         if(!clear){
             console.log(`Setting results for ${filename}:`, results)
-            const Duckresults = new DuckResults(results)
+            const duckresults = new DuckResults(results)
             GLOBAL.files[filename].results = duckresults
             GLOBAL.App.Boxes.refresh_boxes(filename)
             
@@ -29,9 +29,12 @@ DuckDetection = class extends BaseDetection {
     static format_results_for_table(duckresults){
         const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.70
         const n     = duckresults.labels.length;
+        console.log('duckresults', duckresults)
+        console.log('duckresult labels', duckresults.labels)
         let   texts = []
         for (let i = 0; i < n; i++) {
             let   label      = duckresults.labels[i];
+            console.log('label ' +label)
             const confidence = Object.values(duckresults.predictions[i])[0]
             if(!label || (label.toLowerCase()=='not-a-duck')){
                 if(confidence > hiconf_threshold)
@@ -42,6 +45,7 @@ DuckDetection = class extends BaseDetection {
             }
             
             let   text       = `${label}(${(confidence*100).toFixed(0)}%)`
+            console.log('text ' + text)
             if(confidence > hiconf_threshold)
                   text       = `<b>${text}</b>`
             texts = texts.concat(text)
