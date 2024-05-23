@@ -8,7 +8,7 @@ DuckApp = class extends BaseApp {
    static Training      = DuckTraining;
    static Settings      = DuckSettings;
 
-   static NEGATIVE_CLASS = 'Not-A-Duck'
+   static NEGATIVE_CLASS = 'Other Spp.'
 
     //called on click on "Metadata" button
     static on_metadata(){
