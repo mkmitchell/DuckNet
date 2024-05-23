@@ -53,7 +53,7 @@ class DuckDetector(torch.nn.Module):
         return image
     
 
-    def process_image(self, image):
+    def process_image(self, image, confidence_threshold):
         if isinstance(image, str):
             image = self.load_image(image)
         width, height = image.size
@@ -65,21 +65,23 @@ class DuckDetector(torch.nn.Module):
         with torch.no_grad():
             output = self.eval().forward(x)[0]            
         print('output', output)
-        boxes = output['boxes']
-        # rescale boxes to original image size
-        boxes[:, 0] *= width / 300
-        boxes[:, 1] *= height / 300
-        boxes[:, 2] *= width / 300
-        boxes[:, 3] *= height / 300
         label_dict = {i+1: self.class_list[i] for i in range(len(self.class_list))}
         labels = []
-        outlabelslist = output['labels'].numpy().tolist()
-        scoreslist = output['scores'].numpy().tolist()
+        scoreslist = np.where(output['scores'].numpy()>confidence_threshold*.01)
+        outlabelslist = output['labels'].numpy()[scoreslist].tolist()
+        boxes = output['boxes'].numpy()
+        boxes = boxes[scoreslist]
+        # rescale boxes to original image size
+        boxes[:, 0] *= float(width / 300)
+        boxes[:, 1] *= float(height / 300)
+        boxes[:, 2] *= float(width / 300)
+        boxes[:, 3] *= float(height / 300)
+        scoreslist = output['scores'].numpy()[scoreslist]
         for i in  range(len(outlabelslist)):
-            labels.append({label_dict[outlabelslist[i]]:scoreslist[i]})
+            labels.append({label_dict[outlabelslist[i]]:float(scoreslist[i])})
         return {
-            'boxes'            : boxes.tolist(),
-            'box_scores'       : output['scores'].numpy().tolist(),
+            'boxes'            : boxes,
+            'box_scores'       : list(map(float, scoreslist)),
             'labels'           : labels,
         }
     
