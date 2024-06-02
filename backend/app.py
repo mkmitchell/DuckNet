@@ -4,8 +4,7 @@ import backend.training
 
 import os
 import flask
-import numpy as np
-import json
+
 
 
 class App(BaseApp):
@@ -24,11 +23,10 @@ class App(BaseApp):
         
         print(f'Processing image with model {self.settings.active_models["detection"]}')
         model  = self.settings.models['detection']
-        result = model.process_image(full_path, self.settings.confidence_threshold)
-        print('Model predictions are:', result)
+        result = model.process_image(full_path)
         jsonresult = {
-            'labels': result['labels'],
-            'boxes': result['boxes'].tolist(),
+            'labels': [l for l in result['labels'] if list(l.values())[0] > self.settings.confidence_threshold/100],
+            'boxes': [result['boxes'][i] for i in range(len(result['boxes'])) if result['box_scores'][i] > self.settings.confidence_threshold/100],
             'datetime': backend.processing.load_exif_datetime(full_path)
         }
         print(jsonresult)
@@ -44,7 +42,6 @@ class App(BaseApp):
         targetfiles  = backend.training.find_targetfiles(imagefiles)
         if not all(targetfiles):
             flask.abort(404)
-        
         ok = backend.training.start_training(imagefiles, targetfiles, options, self.settings)
         return ok
     
