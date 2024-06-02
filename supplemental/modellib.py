@@ -7,10 +7,9 @@ warnings.simplefilter('ignore') #pytorch is too noisy
 
 
 if "__torch_package__" in dir():
-    # import torch_package_importer
-    # import_func = torch_package_importer.import_module
+    import torch_package_importer # type: ignore
+    import_func = torch_package_importer.import_module
 
-    import_func = lambda m: torch.package.PackageImporter('basemodel.pt.zip').import_module(m)
 else:
     #normal
     import importlib
@@ -63,71 +62,53 @@ class DuckDetector(torch.nn.Module):
         x = T.Resize((300,300))(x)
         x = T.Normalize(mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225])(x)
         with torch.no_grad():
-            output = self.eval().forward(x)[0]
-
+            output = self.eval().forward(x)[0]            
+        print('output', output)
         boxes = output['boxes']
         # rescale boxes to original image size
         boxes[:, 0] *= width / 300
         boxes[:, 1] *= height / 300
         boxes[:, 2] *= width / 300
         boxes[:, 3] *= height / 300
-
+        label_dict = {i+1: self.class_list[i] for i in range(len(self.class_list))}
+        labels = []
+        outlabelslist = output['labels'].numpy().tolist()
+        scoreslist = output['scores'].numpy().tolist()
+        for i in  range(len(outlabelslist)):
+            labels.append({label_dict[outlabelslist[i]]:scoreslist[i]})
         return {
-            'boxes': boxes,
-            'scores': output['scores'],
-            'labels': output['labels']
-            }
+            'boxes'            : boxes.tolist(),
+            'box_scores'       : output['scores'].numpy().tolist(),
+            'labels'           : labels,
+        }
     
     
-    # def start_training_detector(
-    #         self, 
-    #         imagefiles_train,          jsonfiles_train,
-    #         imagefiles_test   = None,  jsonfiles_test = None, 
-    #         negative_classes  = [],    lr             = 5e-3,
-    #         epochs            = 10,    callback       = None,
-    #         num_workers       = 'auto',
-    # ):
-    #     ds_type = datasets.DetectionDataset
-        
-    #     ds_train = ds_type(imagefiles_train, 
-    #                        jsonfiles_train, 
-    #                        augment=datasets.get_transforms(train=True),
-    #                        negative_classes=negative_classes)
-        
-    #     ld_train = datasets.create_dataloader(ds_train, batch_size=8, shuffle=True, num_workers=num_workers)
-        
-    #     ld_test  = None
-    #     if imagefiles_test is not None:
-    #         ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=datasets.get_transforms(train=False), negative_classes=negative_classes)
-    #         ld_test  = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
-        
-    #     task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
-    #     ret  = task.fit(ld_train, ld_test, epochs=epochs)
-    #     return (not task.stop_requested and not ret)
-        
     def start_training_detector(
-        self, 
-        imagefiles_train,           jsonfiles_train,
-        # imagefiles_test   = None,   jsonfiles_test = None, 
-        lr                = 0.05,   epochs         = 10,     
-        callback       = None,      num_workers    = 0,
+            self, 
+            imagefiles_train, jsonfiles_train,
+            imagefiles_test   = None,   jsonfiles_test = None,
+            negative_classes  = [],    lr             = 5e-3,
+            epochs            = 10,    callback       = None,
+            num_workers       = 0,
     ):
-
+        ds_type = datasets.DetectionDataset
         
-        ds_train = datasets.DetectionDataset(imagefiles_train, 
-                                             jsonfiles_train,
-                                             augment=True)
+        ds_train = ds_type(imagefiles_train,
+                           jsonfiles_train,
+                           augment=True,
+                           negative_classes=negative_classes)
         
-        dl_train = datasets.create_dataloader(ds_train, batch_size=8, shuffle=True, num_workers=num_workers)
+        ld_train = datasets.create_dataloader(ds_train, batch_size=16, shuffle=True, num_workers=num_workers)
         
-        dl_test  = None
-        # if imagefiles_test is not None:
-        #     ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=False)
-            # dl_test  = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
+        ld_test  = None
+        if imagefiles_test is not None:
+            ds_test  = datasets.DetectionDataset(imagefiles_test, jsonfiles_test, augment=False, negative_classes=negative_classes)
+            ld_test  = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
         
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
-        ret  = task.fit(dl_train, dl_test, epochs=epochs)
+        ret  = task.fit(ld_train, ld_test, epochs=epochs)
         return (not task.stop_requested and not ret)
+        
 
 
 
