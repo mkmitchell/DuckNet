@@ -1,4 +1,4 @@
-import os
+import os, json
 from base.backend import pubsub
 from base.backend import GLOBALS
 
@@ -33,7 +33,7 @@ def start_training(imagefiles, targetfiles, training_options:dict, settings):
                 num_workers       = 0, 
                 callback          = cb,
                 epochs            = training_options.get('epochs', 10),
-                lr                = training_options.get('learning_rate', 0.001),
+                lr                = training_options.get('learning_rate', 0.0005),
             )
 
         return 'OK' if ok else 'INTERRUPTED'
@@ -46,10 +46,10 @@ def create_training_progress_callback(desc, scale=1, offset=0):
 
 
 def find_targetfiles(inputfiles):
+    # darwin_to_ducknet_json(inputfiles)
     def find_targetfile(imgf):
         no_ext_imgf = os.path.splitext(imgf)[0]
         for f in [f'{imgf}.json', f'{no_ext_imgf}.json']:
             if os.path.exists(f):
                 return f
     return list(map(find_targetfile, inputfiles))
-
