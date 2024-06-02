@@ -3,7 +3,7 @@ import numpy as np
 import scipy.optimize
 
 class TrainingTask(torch.nn.Module):
-    def __init__(self, basemodule, epochs=10, lr=0.05, callback=None):
+    def __init__(self, basemodule, epochs=10, lr=0.0005, callback=None):
         super().__init__()
         self.basemodule        = basemodule
         self.epochs            = epochs
@@ -18,59 +18,13 @@ class TrainingTask(torch.nn.Module):
         raise NotImplementedError()
     
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.0001)
+        optim = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=0.0005)
         sched = torch.optim.lr_scheduler.StepLR(optim, step_size = 3, gamma=0.1)
         return optim, sched
     
     @property
     def device(self):
         return next(self.parameters()).device
-    
-
-    # def train_one_epoch(self, data_loader, optimizer, device, epoch, scheduler=None):
-    #     self.train()
-    #     print_freq = 10
-    #     metric_logger = utils.MetricLogger(delimiter="  ")
-    #     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    #     header = 'Epoch: [{}]'.format(epoch)
-
-    #     lr_scheduler = scheduler
-    #     if epoch == 0:
-    #         warmup_factor = 1. / 1000
-    #         warmup_iters = min(1000, len(data_loader) - 1)
-
-    #         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
-
-    #     for images, targets in metric_logger.log_every(data_loader, print_freq, header):
-    #         images = list(image.to(device) for image in images)
-    #         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
-    #         loss_dict = self(images, targets)
-
-    #         losses = sum(loss for loss in loss_dict.values())
-
-    #         # reduce losses over all GPUs for logging purposes
-    #         loss_dict_reduced = utils.reduce_dict(loss_dict)
-    #         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-
-    #         loss_value = losses_reduced.item()
-
-    #         if not math.isfinite(loss_value):
-    #             print("Loss is {}, stopping training".format(loss_value))
-    #             print(loss_dict_reduced)
-    #             sys.exit(1)
-
-    #         optimizer.zero_grad()
-    #         losses.backward()
-    #         optimizer.step()
-
-    #         if lr_scheduler is not None:
-    #             lr_scheduler.step()
-
-    #         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
-    #         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
-    #     return metric_logger
             
     def train_one_epoch(self, loader, optimizer, scheduler=None):
         for i,batch in enumerate(loader):
@@ -85,46 +39,6 @@ class TrainingTask(torch.nn.Module):
         if scheduler:
             scheduler.step()
 
-    # @torch.no_grad()
-    # def eval_one_epoch(self, data_loader, device):
-    #     n_threads = torch.get_num_threads()
-    #     torch.set_num_threads(1)
-    #     cpu_device = torch.device("cpu")
-    #     self.eval()
-    #     metric_logger = utils.MetricLogger(delimiter="  ")
-    #     header = 'Test:'
-
-    #     coco = utils.get_coco_api_from_dataset(data_loader.dataset)
-    #     iou_types = _get_iou_types(self)
-    #     coco_evaluator = utils.CocoEvaluator(coco, iou_types)
-
-    #     for images, targets in metric_logger.log_every(data_loader, 100, header):
-    #         images = list(img.to(device) for img in images)
-
-    #         if torch.cuda.is_available():
-    #             torch.cuda.synchronize()
-    #         model_time = time.time()
-    #         outputs = self(images)
-
-    #         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
-    #         model_time = time.time() - model_time
-
-    #         res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
-    #         evaluator_time = time.time()
-    #         coco_evaluator.update(res)
-    #         evaluator_time = time.time() - evaluator_time
-    #         metric_logger.update(model_time=model_time, evaluator_time=evaluator_time)
-
-    #     # gather the stats from all processes
-    #     metric_logger.synchronize_between_processes()
-    #     print("Averaged stats:", metric_logger)
-    #     coco_evaluator.synchronize_between_processes()
-
-    #     # accumulate predictions from all images
-    #     coco_evaluator.accumulate()
-    #     coco_evaluator.summarize()
-    #     torch.set_num_threads(n_threads)
-    #     return coco_evaluator
 
     def eval_one_epoch(self, loader):
             all_outputs = []
@@ -136,6 +50,7 @@ class TrainingTask(torch.nn.Module):
             self.callback.on_batch_end(logs, i, len(loader))
 
 
+
     def fit(self, loader_train, loader_valid=None, epochs='auto'):
         self.epochs = epochs
         if epochs == 'auto':
@@ -145,7 +60,7 @@ class TrainingTask(torch.nn.Module):
             self.callback = TrainingProgressCallback(self.progress_callback, self.epochs)
         else:
             self.callback = PrintMetricsCallback()
-
+        
         self.train().requires_grad_(True)
         optim, sched  = self.configure_optimizers()
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -157,14 +72,12 @@ class TrainingTask(torch.nn.Module):
                 if self.__class__.stop_requested:
                     break
                 self.train().requires_grad_(True)
-                # self.train_one_epoch(loader_train, optim, device, epoch, sched)
                 self.train_one_epoch(loader_train, optim, sched)
                 
                 self.eval().requires_grad_(False)
                 if loader_valid:
-                    # self.eval_one_epoch(loader_valid, device)
                     self.eval_one_epoch(loader_valid)
-
+                
                 self.callback.on_epoch_end(e)
         except KeyboardInterrupt:
             print('\nInterrupted')
@@ -177,22 +90,12 @@ class TrainingTask(torch.nn.Module):
             self.zero_grad(set_to_none=True)
             self.eval().cpu().requires_grad_(False)
             torch.cuda.empty_cache()
-        
+     
     #XXX: class method to avoid boiler code
     @classmethod
     def request_stop(cls):
         cls.stop_requested = True
 
-def _get_iou_types(self):
-        model_without_ddp = self
-        if isinstance(self, torch.nn.parallel.DistributedDataParallel):
-            model_without_ddp = self.module
-        iou_types = ["bbox"]
-        if isinstance(model_without_ddp, torchvision.models.detection.MaskRCNN):
-            iou_types.append("segm")
-        if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
-            iou_types.append("keypoints")
-        return iou_types
 
 class DetectionTask(TrainingTask):
     def training_step(self, batch):
@@ -256,35 +159,35 @@ def precision_at_recall(boxes, predicted_boxes, scores, target_recall=0.95, iou_
 
 
 
-# def dice_score(ypred, ytrue, eps=1):
-#     '''Per-image dice score'''
-#     d = torch.sum(ytrue, dim=[2,3]) + torch.sum(ypred, dim=[2,3]) + eps
-#     n = 2* torch.sum(ytrue * ypred, dim=[2,3] ) +eps
-#     return torch.mean(n/d, dim=1)
+def dice_score(ypred, ytrue, eps=1):
+    '''Per-image dice score'''
+    d = torch.sum(ytrue, dim=[2,3]) + torch.sum(ypred, dim=[2,3]) + eps
+    n = 2* torch.sum(ytrue * ypred, dim=[2,3] ) +eps
+    return torch.mean(n/d, dim=1)
 
-# def dice_loss(ypred, ytrue):
-#     return 1 - dice_score(ypred,ytrue)
+def dice_loss(ypred, ytrue):
+    return 1 - dice_score(ypred,ytrue)
 
-# def dice_entropy_loss(ypred, ytrue, alpha=0.1, weight_map=1):
-#     return (  dice_loss(ypred, ytrue)[:,np.newaxis, np.newaxis]*alpha 
-#             + torch.nn.functional.binary_cross_entropy(ypred, ytrue, reduction='none')*(1-alpha)*weight_map ).mean()
+def dice_entropy_loss(ypred, ytrue, alpha=0.1, weight_map=1):
+    return (  dice_loss(ypred, ytrue)[:,np.newaxis, np.newaxis]*alpha 
+            + torch.nn.functional.binary_cross_entropy(ypred, ytrue, reduction='none')*(1-alpha)*weight_map ).mean()
 
 
-# def smoothed_cross_entropy(ypred, ytrue, alpha=0.01, ignore_index=-100):
-#     mask  = (ytrue != ignore_index )
-#     ypred = ypred[mask]
-#     ytrue = ytrue[mask]
+def smoothed_cross_entropy(ypred, ytrue, alpha=0.01, ignore_index=-100):
+    mask  = (ytrue != ignore_index )
+    ypred = ypred[mask]
+    ytrue = ytrue[mask]
     
-#     ypred   = torch.nn.functional.log_softmax(ypred, 1)
-#     alpha_i = alpha / ypred.size(-1)
-#     loss    = -(  ypred.gather(dim=-1, index=ytrue[:,np.newaxis]) * (1-alpha)
-#                 + ypred.sum(dim=-1, keepdim=True)*alpha_i)
-#     return torch.nan_to_num(loss.mean())
+    ypred   = torch.nn.functional.log_softmax(ypred, 1)
+    alpha_i = alpha / ypred.size(-1)
+    loss    = -(  ypred.gather(dim=-1, index=ytrue[:,np.newaxis]) * (1-alpha)
+                + ypred.sum(dim=-1, keepdim=True)*alpha_i)
+    return torch.nan_to_num(loss.mean())
 
-# def low_confidence_loss(ypred, ytrue, index=-100):
-#     mask  = ytrue == index
-#     loss  = torch.nn.functional.mse_loss(ypred, torch.zeros_like(ypred), reduction='none')
-#     return (loss*mask[:, None]).mean()
+def low_confidence_loss(ypred, ytrue, index=-100):
+    mask  = ytrue == index
+    loss  = torch.nn.functional.mse_loss(ypred, torch.zeros_like(ypred), reduction='none')
+    return (loss*mask[:, None]).mean()
 
 
 class PrintMetricsCallback:
