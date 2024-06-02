@@ -9,11 +9,11 @@ def process_image(imagepath, settings):
         model    = settings.models['detection']
         result   = model.process_image(imagepath)
     
-    output_filename = os.path.basename(imagepath)+'.segmentation.png'
+    output_filename = os.path.basename(imagepath)+'.detection.png'
     output_path     = os.path.join(
         get_cache_path(), output_filename
     )
     PIL.Image.fromarray( result ).save(output_path)
     return {
-        'segmentation' : output_filename,
+        'detection' : output_filename,
     }
