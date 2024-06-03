@@ -11,9 +11,3 @@ Corresponding author: Zack Loken, zack@savannainstitute.org
 DuckNet development: Mike Mitchell, mmitchell@ducks.org
 
 **LICENSE for DuckNet**: CC BY-NC-SA 4.0
-
-
-Data and R scripts used for creating figures and tables in publication are available here, under a CC BY-NC-ND 4.0 license: [DuckNet scripts](https://github.com/mkmitchell/DuckNet/tree/main/DuckNet_scripts)  
-The R Markdown files should be opened via the R project file ("DuckNet_scripts.R") in RStudio for setting up the correct working directory.
-
-
