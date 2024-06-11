@@ -4,10 +4,9 @@
 
 
 **Citation**:
-Loken, Zachary J., "UAVs and Deep Neural Networks: An Alternative Approach to Monitoring Waterfowl at
-the Site Level" (2023). LSU Master's Theses. 5850. https://repository.lsu.edu/gradschool_theses/5850?utm_source=repository.lsu.edu%2Fgradschool_theses%2F5850&utm_medium=PDF&utm_campaign=PDFCoverPages
+Loken, Z. J, Ringelman, K. M., Mini, A., James, D. & Mitchell, M. UAVs and Deep Neural Networks Effectively Detect and Identify Non-breeding Waterfowl. 2024 (Submitted). Remote Sensing in Ecology and Conservation. 
 
-Corresponding author: Zack Loken, zack@savannainstitute.org
+Corresponding author: Zack Loken, zack@savannainstitute.org   
 DuckNet development: Mike Mitchell, mmitchell@ducks.org
 
 **LICENSE for DuckNet**: CC BY-NC-SA 4.0
