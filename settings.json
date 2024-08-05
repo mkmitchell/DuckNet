@@ -2,7 +2,7 @@
   "active_models": {
     "detection": "basemodel"
   },
-  "confidence_threshold": 70,
-  "export_boxes": false,
+  "confidence_threshold": 50,
+  "export_boxes": true,
   "flag_negatives": true
 }
