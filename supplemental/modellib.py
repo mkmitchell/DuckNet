@@ -15,8 +15,6 @@ else:
     import importlib
     import_func = lambda m: importlib.reload(importlib.import_module(m))
 
-
-
 #import internal modules
 MODULES = ['datasets', 'traininglib']
 [datasets, traininglib] = [import_func(m) for m in MODULES]
@@ -108,9 +106,6 @@ class DuckDetector(torch.nn.Module):
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
         ret  = task.fit(ld_train, ld_test, epochs=epochs)
         return (not task.stop_requested and not ret)
-        
-
-
 
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
@@ -121,7 +116,7 @@ class DuckDetector(torch.nn.Module):
             if not destination.endswith('.pt.zip'):
                 destination += '.pt.zip'
         try:
-            import torch.package.package_importer as imp
+            import torch_package_importer as imp
             #re-export
             importer = (imp, torch.package.sys_importer)
         except ImportError as e:
@@ -131,7 +126,7 @@ class DuckDetector(torch.nn.Module):
             interns = [__name__.split('.')[-1]]+MODULES
             pe.intern(interns)
             pe.extern('**', exclude=['torchvision.**'])
-            externs = ['torchvision.ops.**', 'torchvision.datasets.**', 'torchvision.io.**', 'torchvision.models.*']
+            externs = ['torchvision.ops.**', 'torchvision.datasets.**', 'torchvision.io.**']
             pe.intern('torchvision.**', exclude=externs)
             pe.extern(externs, exclude='torchvision.models.detection.**')
             pe.intern('torchvision.models.detection.**')
@@ -159,7 +154,7 @@ class Detector(torch.nn.Module):
     def __init__(self, image_size:int=300):
         super().__init__()
         self.basemodel = torchvision.models.detection.ssd300_vgg16()
-        self.basemodel.load_state_dict(torch.load('C:/Users/zack/Documents/GitHub/SSD_VGG_PyTorch/ssd300_vgg16_gradientAccumulation_noHen.pth', map_location=torch.device('cpu')))
+        self.basemodel.load_state_dict(torch.load('C:/Users/exx/Documents/GitHub/DuckNet/ssd300_vgg16_gradientAccumulation_noHen.pth', map_location=torch.device('cpu')))
         self.image_size = image_size
         self._device_indicator = torch.nn.Parameter(torch.zeros(0)) #dummy parameter
         
