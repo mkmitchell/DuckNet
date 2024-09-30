@@ -149,10 +149,8 @@ ObjectDetectionTraining = class extends BaseTraining {
         super.refresh_tab()
         
         const train_det = $('#train-detector-checkbox').checkbox('is checked')
-        const train_cls = $('#train-classifier-checkbox').checkbox('is checked')
 
         $('table#detector-classes').toggle(train_det)
-        $('table#classifier-classes').toggle(train_cls)
 
         const callback = (_ => this.refresh_class_selection())
         $('#classes-of-interest-dropdown').dropdown({onChange: callback})
@@ -183,7 +181,6 @@ ObjectDetectionTraining = class extends BaseTraining {
             classes_unknown     : unk_selected,
             classes_rejected    : rejected,
             train_detector      : $('#train-detector-checkbox').checkbox('is checked'),
-            train_classifier    : $('#train-classifier-checkbox').checkbox('is checked'),
             learning_rate       : Number($('#training-learning-rate')[0].value),
             epochs              : Number($('#training-number-of-epochs')[0].value),
         };
