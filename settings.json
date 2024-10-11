@@ -1,6 +1,6 @@
 {
   "active_models": {
-    "detection": "basemodel"
+    "detection": "DuckNet_FineTuned_20epoch"
   },
   "confidence_threshold": 50,
   "export_boxes": true,
