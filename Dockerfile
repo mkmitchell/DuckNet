@@ -19,8 +19,9 @@ RUN conda init bash \
     && conda env create --file environment.yml \
     && conda activate DuckNet
 RUN python fetch_pretrained_models.py
+RUN export PATH=$PATH:/root/miniconda3/envs/DuckNet/bin/
 # By default Voilà uses port 8866
 EXPOSE 5050
 # Run voila when the cotainer is launched
-CMD ["/root/miniconda/3/envs/DuckNet/bin/gunicorn", "main:app", "--bind 0.0.0.0:5050"]
+CMD ["/root/miniconda/3/envs/DuckNet/bin/gunicorn", "maingunicorn:app", "--bind 0.0.0.0:5050"]
 # CMD bash
