@@ -1,4 +1,3 @@
 from backend.app import App
 
-App().run()
-
+app = App()
