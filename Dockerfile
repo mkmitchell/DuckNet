@@ -5,10 +5,11 @@ ENV DOCKERPATH="/app"
 ENV INSTANCE_PATH="/app"
 ENV ROOT_PATH="/app"
 ARG PATH="/root/miniconda3/bin:$PATH"
+ENV PYTHONPATH="/app"
 WORKDIR /app
 # Create /app folder on docker container
 # Copy files from current folder to /app folder
-COPY * /app
+COPY . /app
 # Install Python, pip, conda
 RUN apt-get update
 RUN apt-get install -y wget && rm -rf /var/lib/apt/lists/*
@@ -23,8 +24,9 @@ RUN conda init bash \
     && conda activate DuckNet
 RUN python fetch_pretrained_models.py
 # RUN ln -s /root/miniconda3/envs/DuckNet/bin/gunicorn /usr/bin/gunicorn
-# By default Voilà uses port 8866
+# use port 5050
 EXPOSE 5050
-# Run voila when the cotainer is launched
-CMD ["gunicorn", "maingunicorn:app", "--bind 0.0.0.0:5050"]
+# Run gunicorn when the container is launched
+# increase timeout to 120 seconds and use gevent for async workers
+CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--timeout", "120", "--worker-class", "gevent", "maingunicorn:app"]
 # CMD bash
