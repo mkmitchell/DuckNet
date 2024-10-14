@@ -107,9 +107,9 @@ class DetectionDataset(Dataset):
 
         labels = get_labels_from_jsonfile(jsonfile)
 
-        label_dict = {4.0: 'MALL', 1.0: 'AMCO', 3.0: 'GWTE', 6.0: 'NSHO', 2.0: 'GADW', 8.0: 'RNDU', 5.0: 'NOPI', 7.0: 'REDH'} #FIXME: hardcoded
+        # label_dict = {4.0: 'MALL', 1.0: 'AMCO', 3.0: 'GWTE', 6.0: 'NSHO', 2.0: 'GADW', 8.0: 'RNDU', 5.0: 'NOPI', 7.0: 'REDH'} #FIXME: hardcoded
         
-        labels = [0 if label not in label_dict.values() else list(label_dict.keys())[list(label_dict.values()).index(label)] for label in labels]
+        # labels = [0 if label not in label_dict.values() else list(label_dict.keys())[list(label_dict.values()).index(label)] for label in labels]
 
         boxes    = [box for box,label in zip(boxes, labels) if label not in self.negative_classes]
         boxes    = np.array(boxes).reshape(-1,4)
