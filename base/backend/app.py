@@ -56,12 +56,11 @@ class App(flask.Flask):
         is_second_start  = (os.environ.get("WERKZEUG_RUN_MAIN") == 'true')
         do_not_reload    = (os.environ.get('DO_NOT_RELOAD',None) is not None)
         is_reloader      = (is_debug and not is_second_start) and not do_not_reload
-        dockerpath       = os.environ.get("DOCKERPATH")
         self.is_reloader = is_reloader
 
         super().__init__(
             'reloader' if is_reloader else __name__,
-            root_path          = path_to_main_module() if dockerpath=='' else dockerpath,
+            root_path          = path_to_main_module(),
             static_folder      = get_static_path(), 
             instance_path      = get_instance_path(),
             #template_folder   = <multiple>                # handled manually
