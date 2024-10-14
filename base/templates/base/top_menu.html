@@ -32,7 +32,7 @@
             Load Annotations
           </label>
           <input type="file" id="annotations-input" style="display:none"
-                 onchange="{{ app }}.FileInput.on_annotations_select(event)" accept="image/*, application/zip, application/x-zip-compressed" multiple>
+                 onchange="{{ app }}.FileInput.on_annotations_select(event)" accept=".json, application/zip, application/x-zip-compressed" multiple>
           
           {{ filemenu_extras | indent(8) }}
         </div>
