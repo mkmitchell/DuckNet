@@ -12,21 +12,21 @@ DuckApp = class extends BaseApp {
 
     //called on click on "Metadata" button
     static on_metadata(){
-        $('#metadata-dialog').modal({onApprove: function(){
-            const meta = {
-                'Site Name':            $('#input_site_name').val(),
-                'Site Location':        $('#input_site_location').val(),
-                'Site Responsible':     $('#input_site_responsible').val(),
-                'Country':              $('#input_country').val(),
-                'Latitude':             $('#input_latitude').val(),
-                'Longitude':            $('#input_longitude').val(),
-                'Camera ID':            $('#input_camera_id').val(),
-                'Other':                $('#input_other').val(),
-            };
-            console.log("Metadata: "+JSON.stringify(meta));
-            GLOBAL.metadata = meta;
-        }}).modal('show')
-    }
+      $('#metadata-dialog').modal({onApprove: function(){
+          const meta = {
+              'Date':         $('#input_date').val(),  
+              'Site Name':    $('#input_site_name').val(),
+              'Region':       $('#input_region').val(),
+              'State':        $('#input_state').val(),
+              'County':       $('#input_county').val(),
+              'Surveyor':     $('#input_surveyor').val(),
+              'Camera ID':    $('#input_camera_id').val(),
+              'Comments':     $('#input_comments').val(),
+          };
+          console.log("Metadata: "+JSON.stringify(meta));
+          GLOBAL.metadata = meta;
+      }}).modal('show')
+  }
 }
 
 
