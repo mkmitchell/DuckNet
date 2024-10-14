@@ -221,7 +221,7 @@ ObjectDetectionTraining = class extends BaseTraining {
         const oth_ixs      = Object.keys(classes).filter( i => oth_selected.includes(classes[i]) )
         const unk_ixs      = Object.keys(classes).filter( i => unk_selected.includes(classes[i]) )
 
-        const $table       = $('table#classifier-classes tbody')
+        const $table       = $('table#detector-classes tbody')
         $table.html('')
         for(const i of coi_ixs){
             //console.log(classes[i], counts[i])
