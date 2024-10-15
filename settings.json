@@ -3,6 +3,6 @@
     "detection": "basemodel"
   },
   "confidence_threshold": 50,
-  "export_boxes": true,
-  "flag_negatives": true
+  "flag_negatives": true,
+  "export_boxes": true
 }
