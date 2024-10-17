@@ -52,10 +52,12 @@ def get_frontend_folders():
 
 class App(flask.Flask):
     def __init__(self, **kw):
-        is_debug         = sys.argv[0].endswith('.py')
-        is_second_start  = (os.environ.get("WERKZEUG_RUN_MAIN") == 'true')
-        do_not_reload    = (os.environ.get('DO_NOT_RELOAD',None) is not None)
-        is_reloader      = (is_debug and not is_second_start) and not do_not_reload
+        is_debug = False#(os.environ.get("DEBUG") == 'true') #sys.argv[0].endswith('.py')
+        if (os.environ.get("DEBUG") == 'true'):
+            self.DEBUG = True
+        is_second_start = (os.environ.get("WERKZEUG_RUN_MAIN") == 'true')
+        do_not_reload = (os.environ.get('DO_NOT_RELOAD',None) is not None)
+        is_reloader = (is_debug and not is_second_start) and not do_not_reload
         self.is_reloader = is_reloader
 
         super().__init__(

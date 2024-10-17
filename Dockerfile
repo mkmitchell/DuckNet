@@ -5,6 +5,7 @@ ENV INSTANCE_PATH="/app"
 ENV ROOT_PATH="/app"
 ARG PATH="/root/miniconda3/bin:$PATH"
 ENV PYTHONPATH="/app"
+ENV DEBUG="true"
 WORKDIR /app
 # Copy files from current folder to /app folder
 COPY . /app

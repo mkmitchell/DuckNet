@@ -5,14 +5,10 @@ import backend.training
 import os
 import flask
 
-
-
 class App(BaseApp):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
-
         self.route('/read_exif_datetime')(self.read_exif_datetime)
-
 
     #TODO: unify
     #override
