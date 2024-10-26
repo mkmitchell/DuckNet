@@ -29,4 +29,3 @@ DuckSettings = class extends BaseSettings{
         return data
     }
 }
-
