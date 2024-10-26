@@ -183,8 +183,10 @@ class App(flask.Flask):
         #indicate that the model is not the same as before
         self.settings.active_models['detection'] = ''
         def on_progress(p):
-            backend.pubsub.PubSub.publish({'progress':p,  'description':'Training...'}, event='training')
-        ok = model.start_training(imagefiles=[], targetfiles=[], callback=on_progress)
+            backend.pubsub.PubSub.publish({'progress': p, 'description': 'Training...'}, event='training')
+        
+        # Pass the correct list of image files to the start_training method
+        ok = model.start_training(imagefiles=imagefiles, targetfiles=[], callback=on_progress)
         return 'OK' if ok else 'INTERRUPTED'
     
     def save_model(self):
