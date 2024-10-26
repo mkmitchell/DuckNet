@@ -4,6 +4,7 @@ import backend.training
 
 import os
 import flask
+import numpy
 
 class App(BaseApp):
     def __init__(self, *a, **kw):
