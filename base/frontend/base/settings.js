@@ -1,16 +1,16 @@
 
 
-BaseSettings = class{
+class BaseSettings {
     static SETTINGS_CHANGED = 'settings-changed'
 
-    static async load_settings(){
+    static async load_settings() {
         //TODO: error handling
         const data = await $.get('/settings')
         
         const settings = data.settings
         const models   = data.available_models
-        console.log('Loaded settings:  ',settings)
-        console.log('Available models: ',models)
+        console.log('Loaded settings:  ', settings)
+        console.log('Available models: ', models)
         GLOBAL.settings         = settings
         GLOBAL.available_models = data.available_models
         BaseSettings.dispatch_event()
@@ -19,41 +19,55 @@ BaseSettings = class{
         return data;
     }
 
-    static update_settings_modal(models){
+    static update_settings_modal(models) {
         const settings = GLOBAL.settings;
 
-        if(models.detection)
+        if (models.detection)
             this.update_model_selection_dropdown(
                 models.detection, settings.active_models.detection, $("#settings-active-model")
             )
+
+        // // Apply other settings to the UI
+        // console.log("Confidence Threshold:", settings.confidence_threshold); // Add this line
+        // console.log("Flag Negatives:", settings.flag_negatives); // Add this line
+        // console.log("Export Boxes:", settings.export_boxes); // Add this line
+
+        // $("#settings-confidence-threshold-input")[0].value = settings.confidence_threshold;
+        // $("#settings-flag-negatives").checkbox(settings.flag_negatives ? 'check' : 'uncheck');
+        // $("#settings-export-boxes").checkbox(settings.export_boxes ? 'check' : 'uncheck');
     }
 
-    
-    static update_model_selection_dropdown(models, active_model, $dropdown){
-        const modelnames   = models.map( x => ((typeof x) == 'string')? x : x.name )
-        let dropdown_items = modelnames.map( (x,i) => {
-            return {name:x, value:x, selected:(x == active_model)};
+    static update_model_selection_dropdown(models, active_model, $dropdown) {
+        const modelnames   = models.map(x => ((typeof x) == 'string') ? x : x.name)
+        let dropdown_items = modelnames.map((x, i) => {
+            return { name: x, value: x, selected: (x == active_model) };
         })
-        if(active_model == '')
-            dropdown_items.push({name:'[UNSAVED MODEL]', value:'', selected:true})
-        
+        if (active_model == '')
+            dropdown_items.push({ name: '[UNSAVED MODEL]', value: '', selected: true })
+
         $dropdown.dropdown({
-            values:      dropdown_items, 
-            showOnFocus: false, 
-            onChange:    (dropdown_value) => {
+            values: dropdown_items,
+            showOnFocus: false,
+            onChange: (dropdown_value) => {
                 const i = modelnames.indexOf(dropdown_value)
                 const properties = models[i]?.properties;
                 this.display_model_properties(properties, $dropdown)
             }
         })
-        
+
         const i = modelnames.indexOf($dropdown.dropdown('get value'))
         this.display_model_properties(models[i]?.properties, $dropdown)
     }
 
-    static apply_settings_from_modal(){
-        GLOBAL.settings.active_models.detection = $("#settings-active-model").dropdown('get value');
+    static apply_settings_from_modal() {
+        const value = $("#settings-active-model").dropdown('get value');
+        // console.log("Applying settings with value:", value); // Add this line
+        // GLOBAL.settings.active_models.detection = value;
+        // GLOBAL.settings.confidence_threshold = Number($("#settings-confidence-threshold-input")[0].value);
+        // GLOBAL.settings.flag_negatives = $("#settings-flag-negatives").checkbox('is checked');
+        // GLOBAL.settings.export_boxes = $("#settings-export-boxes").checkbox('is checked');
     }
+
 
     static on_save_settings(_){
         this.apply_settings_from_modal()
@@ -107,5 +121,3 @@ BaseSettings = class{
         return model?.properties;
     }
 }
-
-
