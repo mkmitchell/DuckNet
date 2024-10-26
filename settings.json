@@ -4,5 +4,5 @@
   },
   "confidence_threshold": 70,
   "flag_negatives": true,
-  "export_boxes": false
+  "export_boxes": true
 }
