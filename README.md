@@ -4,7 +4,7 @@
 
 
 **Citation**:
-Loken, Z. J, Ringelman, K. M., Mini, A., James, D. & Mitchell, M. 2024. UAVs and Deep Neural Networks Effectively Detect and Identify Non-breeding Waterfowl. Remote Sensing in Ecology and Conservation (Submitted). 
+Loken, Z. J, Ringelman, K. M., Mini, A., James, D. & Mitchell, M. 2024. UAVs and Deep Neural Networks Effectively Detect and Identify Non-breeding Waterfowl. Remote Sensing in Ecology and Conservation (In review). 
 
 Corresponding author: Zack Loken, zack@savannainstitute.org   
 DuckNet development: Mike Mitchell, mmitchell@ducks.org
