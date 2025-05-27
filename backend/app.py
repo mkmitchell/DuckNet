@@ -4,7 +4,6 @@ import backend.training
 
 import os
 import flask
-import numpy
 
 class App(BaseApp):
     def __init__(self, *a, **kw):
@@ -19,13 +18,27 @@ class App(BaseApp):
             flask.abort(404)
         
         print(f'Processing image with model {self.settings.active_models["detection"]}')
-        model  = self.settings.models['detection']
+        model = self.settings.models['detection']
         result = model.process_image(full_path)
+        
+        threshold = self.settings.confidence_threshold/100
+        filtered_items = [(i, score) for i, score in enumerate(result['box_scores']) if score > threshold]
+        formatted_labels = [{result['labels'][i]: float(score)} for i, score in filtered_items]
+        
+        filtered_boxes = []
+        for i, _ in filtered_items:
+            box = result['boxes'][i]
+            if hasattr(box, 'tolist'):
+                filtered_boxes.append(box.tolist())
+            else:
+                filtered_boxes.append(list(box))
+        
         jsonresult = {
-            'labels': [l for l in result['labels'] if list(l.values())[0] > self.settings.confidence_threshold/100],
-            'boxes': [result['boxes'][i] for i in range(len(result['boxes'])) if result['box_scores'][i] > self.settings.confidence_threshold/100],
+            'labels': formatted_labels,
+            'boxes': filtered_boxes,
             'datetime': backend.processing.load_exif_datetime(full_path)
         }
+        
         print(jsonresult)
         return flask.jsonify(jsonresult)
 
