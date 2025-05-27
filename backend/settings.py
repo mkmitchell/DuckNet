@@ -9,10 +9,10 @@ class Settings(BaseSettings):
     def get_defaults(cls):
         d = super().get_defaults()
         d.update({
-            'confidence_threshold'     : 70,
+            'confidence_threshold'     : 50,
             'flag_negatives'           : True,
-            'export_boxes'             : False,
-        })
+            'export_boxes'             : True,
+        }.items())
         return d
 
     #override
@@ -21,11 +21,10 @@ class Settings(BaseSettings):
         s['species_codes'] = parse_species_codes_file()
         return s
 
-
 DEFAULT_SPECIES_FILE = os.path.join(path_to_main_module(), 'species_codes.txt')
 
 def parse_species_codes_file(path=DEFAULT_SPECIES_FILE):
     lines         = open(path).read().strip().split('\n')
-    species2codes = dict([ map(str.strip, line.split(':')) for line in lines])
+    species2codes = dict([ map(str.strip, line.split(':')) for line in lines]) # type: ignore
     return species2codes
 
