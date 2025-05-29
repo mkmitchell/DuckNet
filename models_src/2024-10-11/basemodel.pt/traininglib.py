@@ -208,27 +208,21 @@ class TrainingTask(torch.nn.Module):
             self.callback.on_batch_end(logs, i, len(loader))
 
     def eval_one_epoch(self, loader):
-        print("DEBUG: eval_one_epoch called")
         all_outputs = []
         self.basemodule.eval()
         with torch.no_grad():
             for i, batch in enumerate(loader):
                 outputs, logs = self.validation_step(batch)
                 all_outputs += [outputs]
-        
-        print(f"DEBUG: About to call validation_epoch_end with {len(all_outputs)} outputs")
+
         logs = self.validation_epoch_end(all_outputs)
-        print(f"DEBUG: validation_epoch_end returned: {list(logs.keys()) if logs else 'empty dict'}")
         
         if hasattr(self, 'callback'):
-            # always stash into the generic callback
             self.callback.logs = logs
 
-            # try to sync into its internal PrintMetricsCallback
             printer = getattr(self.callback, '_printer', None)
             if printer is not None:
                 printer.logs = logs
-                # ALSO merge the validation metrics into printer.logs for printing
                 for k, v in logs.items():
                     if isinstance(v, (float, int)) or k == 'per_class':
                         printer.logs[k] = v
@@ -300,22 +294,16 @@ class DetectionTask(TrainingTask):
         return {'y_pred': y_pred, 'y_true': y_true}, {}
     
     def validation_epoch_end(self, logs):
-        print(f"DEBUG: validation_epoch_end called with {len(logs)} logs")
-    
         boxes_true = [b for B in [[o['boxes'].cpu() for o in O['y_true']] for O in logs] for b in B]
         boxes_pred = [b for B in [[o['boxes'].cpu() for o in O['y_pred']] for O in logs] for b in B]
         scores_pred = [s for S in [[o['scores'].cpu() for o in O['y_pred']] for O in logs] for s in S]
         labels_true = [l for L in [[o['labels'].cpu() for o in O['y_true']] for O in logs] for l in L]
         labels_pred = [l for L in [[o['labels'].cpu() for o in O['y_pred']] for O in logs] for l in L]
         
-        print(f"DEBUG: scores_pred length: {len(scores_pred)}, any with content: {any(len(s) > 0 for s in scores_pred) if scores_pred else False}")
-        
         if not scores_pred or not any(len(s) > 0 for s in scores_pred):
-            print("DEBUG: Returning early - no predictions")
             return {}
         
         class_list = self.basemodule.class_list
-        print(f"DEBUG: Processing {len(class_list)} classes: {class_list}")
         iou_range = np.arange(0.5, 1.0, 0.05)
 
         metrics = {}
@@ -510,8 +498,6 @@ class PrintMetricsCallback:
         self.logs = {}  
         
     def on_epoch_end(self, epoch):
-        print(f"\nEpoch {self.epoch} completed")
-        
         overall_metrics = {k: v for k, v in self.logs.items() 
                         if isinstance(v, (float, int)) and k.startswith(('AP@', 'AR@', 'F1@'))}
         if overall_metrics:
@@ -529,6 +515,7 @@ class PrintMetricsCallback:
                 print(f"\n{class_name}:")
                 print(f"  AP@IoU=0.5: {metrics['AP@IoU=0.5']:.4f}, AR@IoU=0.5: {metrics['AR@IoU=0.5']:.4f}, F1@IoU=0.5: {metrics['F1@IoU=0.5']:.4f}")
                 print(f"  AP@IoU=0.75: {metrics['AP@IoU=0.75']:.4f}, AR@IoU=0.75: {metrics['AR@IoU=0.75']:.4f}, F1@IoU=0.75: {metrics['F1@IoU=0.75']:.4f}")
+        print(f"\nEpoch {self.epoch} completed")
         
         self.epoch = epoch + 1
         self.metric_logger = MetricLogger(delimiter="  ")
