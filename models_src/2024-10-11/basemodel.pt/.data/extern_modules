@@ -4,7 +4,6 @@ torchvision.transforms.v2
 torch._jit_internal
 warnings
 importlib
-collections
 torchvision.models.detection
 torchvision.models.detection.backbone_utils
 torchvision.models.detection.retinanet
@@ -16,6 +15,7 @@ typing
 pt_soft_nms
 time
 sys
+collections
 sklearn.model_selection
 torchvision.tv_tensors
 numpy
