@@ -8,7 +8,7 @@ DuckApp = class extends BaseApp {
    static Training      = DuckTraining;
    static Settings      = DuckSettings;
 
-   static NEGATIVE_CLASS = 'Other Spp.'
+   static NEGATIVE_CLASS = 'Other'
 
     //called on click on "Metadata" button
     static on_metadata(){
@@ -49,7 +49,7 @@ DuckResults = class {
     }
 
     compute_flags(filename, return_per_result=false){
-        const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.70
+        const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.50
         let lowconfs = [];
         let amount   = 0;
         let flags    = []
@@ -85,8 +85,7 @@ DuckResults = class {
       
         if(amount==0)
           flags.push('empty');
-        else if(amount>1)
-          flags.push('multiple');
+        // Removed multiple flag - multiple species are expected
         
         return flags
     }
