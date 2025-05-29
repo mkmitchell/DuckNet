@@ -2,7 +2,7 @@
 
 DuckBoxes = class extends BaseBoxes {
     //override
-    static NEGATIVE_CLASS_NAME = 'Other Spp.'
+    static NEGATIVE_CLASS_NAME = 'Other'
 
     //TODO: unify
     //override
