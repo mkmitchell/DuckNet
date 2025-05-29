@@ -1,5 +1,3 @@
-
-
 DuckTraining = class extends ObjectDetectionTraining {
     
     //dummy override: all files (with results) selected
@@ -14,4 +12,3 @@ DuckTraining = class extends ObjectDetectionTraining {
     }
 
 }
-
