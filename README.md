@@ -15,7 +15,7 @@ DuckNet allows users to process custom UAV image datasets using a baseline model
 - **A hen (female) waterfowl class** (species-agnostic)
 - **American coot** (*Fulica americana*)
 
-Users can fine-tune the baseline model with custom, annotated drone imagery to add additional species, distinguish between life stages (e.g., juvenile vs. adult), or identify different plumage types (e.g., breeding vs. non-breeding). Any visual distinction that can be captured by drone image and represented by a labeled bounding box is supported.
+Users can fine-tune the baseline model with custom, annotated drone imagery to add additional species, distinguish between life stages (e.g., juvenile vs. adult), or identify different plumage types (e.g., breeding vs. non-breeding). Any visual distinction that can be captured in a UAV image and represented by a labeled bounding box is supported.
 
 DuckNet includes:
 
