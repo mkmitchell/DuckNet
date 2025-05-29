@@ -1,6 +1,7 @@
 Fulica americana            :   AMCO
 Mareca strepera             :   GADW
 Anas carolinensis           :   GWTE
+Waterfowl Hen               :   Hen
 Anas platyrhynchos          :   MALL
 Anas acuta                  :   NOPI
 Spatula clypeata            :   NSHO
