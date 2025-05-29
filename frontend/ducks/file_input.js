@@ -41,9 +41,12 @@ DuckFileInput = class extends BaseFileInput{
                     results.boxes.push( box )
                 }
                 if(!results.datetime) {
-                    //earlier version which did not save datetime
-                    //have to do a roundtrip to the backend to read exif
-                    results.datetime = await _this.fetch_exif_datetime_via_backend(filename)
+                    try {
+                        results.datetime = await _this.fetch_exif_datetime_via_backend(filename)
+                    } catch(e) {
+                        console.warn('Failed to fetch datetime:', e)
+                        results.datetime = null
+                    }
                 }
                 
                 GLOBAL.App.Detection.set_results(filename, results)
