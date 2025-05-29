@@ -1,5 +1,8 @@
-# Use Ubuntu operating system
-FROM ubuntu
+# Use NVIDIA CUDA 12.4.1 with cuDNN base image for GPU support
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Set environment variables
 ENV PATH="/root/miniconda3/envs/DuckNet/bin/:/root/miniconda3/bin:$PATH"
@@ -15,9 +18,9 @@ WORKDIR /app
 # Copy files from current folder to /app folder
 COPY . /app
 
-# Install Python, pip, conda
+# Install Python, pip, conda, and git
 RUN apt-get update
-RUN apt-get install -y wget zip unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get install -y wget zip unzip git && rm -rf /var/lib/apt/lists/*
 RUN wget \
     https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
     && mkdir /root/.conda \
@@ -29,6 +32,9 @@ RUN conda init bash \
     && . ~/.bashrc \
     && conda env create --file environment.yml \
     && conda activate DuckNet
+
+# Install pt_soft_nms separately; throws errors if installed concurrently with torch
+RUN /root/miniconda3/envs/DuckNet/bin/pip install --use-pep517 --no-build-isolation git+https://github.com/MrParosk/soft_nms.git
 
 # Create necessary directories and zip models
 RUN mkdir -p /app/models/detection
@@ -42,5 +48,4 @@ WORKDIR /app
 EXPOSE 5050
 
 # Run gunicorn when the container is launched
-# Increase timeout to 120 seconds and use gevent for async workers
-CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--timeout", "120", "--worker-class", "gevent", "maingunicorn:app"]
+CMD ["python", "-u", "-m", "gunicorn", "--bind", "0.0.0.0:5050", "--workers", "1", "--worker-class", "gevent", "--worker-connections", "1000", "--timeout", "86400", "maingunicorn:app"]
