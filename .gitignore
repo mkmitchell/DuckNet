@@ -7,7 +7,6 @@ basemodel.pt.zip
 tests/logs
 sync_models.py
 venv
-ssd300_vgg16_gradientAccumulation_noHen.pth
 supplemental/PackageExporter.ipynb
 supplemental/PackageExporter.ipynb
 /models/detection
