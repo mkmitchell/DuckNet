@@ -1,5 +1,4 @@
 import os
-from base.backend import pubsub
 from base.backend import GLOBALS
 
 def start_training(imagefiles, targetfiles, training_options:dict, settings):
@@ -9,9 +8,11 @@ def start_training(imagefiles, targetfiles, training_options:dict, settings):
 
     print('Training options: ', training_options)
 
-    try:
+    with GLOBALS.processing_lock:
+        GLOBALS.processing_lock.release()  #decrement recursion level bc acquired twice
+    
         model = settings.models['detection']
-        # Indicate that the current model is unsaved
+        #indicate that the current model is unsaved
         settings.active_models['detection'] = ''
         
         ok = True
@@ -32,14 +33,13 @@ def start_training(imagefiles, targetfiles, training_options:dict, settings):
                 epochs=training_options.get('epochs', 10),
                 lr=training_options.get('learning_rate', 0.001),
             )
-
         return 'OK' if ok else 'INTERRUPTED'
-    finally:
-        GLOBALS.processing_lock.release()
 
 def create_training_progress_callback(desc, scale=1, offset=0):
     def callback(progress, logs=None):
-        # only drive the front-end
+        # Import inside callback to ensure main thread context
+        from base.backend import pubsub
+        
         pubsub.PubSub.publish(
             {'progress': progress*scale + offset, 'description': desc},
             event='training'
