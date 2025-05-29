@@ -27,7 +27,7 @@ DuckDetection = class extends BaseDetection {
     }
 
     static format_results_for_table(duckresults){
-        const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.70
+        const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.50
         const n     = duckresults.labels.length;
         console.log('duckresults', duckresults)
         console.log('duckresult labels', duckresults.labels)
@@ -64,17 +64,17 @@ DuckDetection = class extends BaseDetection {
       $flag_icon.css('visibility', flags.includes('unsure')? 'visible' : 'hidden')  //hide()/show() changes layout
 
       const empty      = flags.includes('empty');
-      const multiple   = flags.includes('multiple');
+      // Removed multiple flag handling since multiple species is expected
             $flag_icon = $(`.table-row[filename="${filename}"]`).find('.amounts-flag');
-      $flag_icon.css('visibility', (empty||multiple)? 'visible' : 'hidden')
+      
       if(empty){
+        $flag_icon.css('visibility', 'visible');
         $flag_icon.addClass('outline');         //empty
         $flag_icon.removeClass('checkered');
         $flag_icon.attr('title', 'No detections');
-      } else if(multiple) {
-        $flag_icon.addClass('checkered');      //multiple
-        $flag_icon.removeClass('outline');
-        $flag_icon.attr('title', 'Multiple detections');
+      } else {
+        // Hide the amounts flag when there are detections (no longer flagging multiple)
+        $flag_icon.css('visibility', 'hidden');
       }
     }
 
