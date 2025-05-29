@@ -152,16 +152,6 @@ BaseTraining = class BaseTraining{
         $('#training-modal #cancel-training-button').hide()
     }
 
-    // static on_training_progress(message){
-    //     var data = JSON.parse(message.originalEvent.data)
-    //     $('#training-modal .progress').progress({percent:data.progress*100, autoSuccess:false})
-    //     $('#training-modal .label').text(data.description)
-    //     if(data.progress >= 1){
-    //         this.success_modal()
-    //         //this.update_model_info()
-    //     }
-    // }
-
     static on_training_progress(message){
         var data = JSON.parse(message.originalEvent.data)
         console.log('Progress update:', data)
@@ -181,18 +171,6 @@ BaseTraining = class BaseTraining{
             .fail( _ => $('body').toast({message:'Saving failed.', class:'error', displayTime: 0, closeIcon: true}) )
         $('#training-new-modelname')[0].value = ''
     }
-
-//     static upload_training_data(filenames){
-//         //TODO: show progress
-//         var promises      = filenames.map( f => upload_file_to_flask(GLOBAL.files[f]) )
-//         //TODO: refactor
-//         //TODO: standardize file name
-//         var segmentations = filenames.map(    f => GLOBAL.files[f].results.segmentation )
-//                                      .filter( s => s instanceof Blob )
-//         promises          = promises.concat( segmentations.map( f => upload_file_to_flask(f) ) )
-//         return Promise.all(promises).catch( this.fail_modal )  //FIXME: dont catch, handle in calling function
-//     }
-// }
 
     static async upload_training_data(filenames){
         // Log the filenames
