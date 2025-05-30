@@ -1,12 +1,10 @@
 __pycache__
 builds
 TESTDATA
-static
 cache
 basemodel.pt.zip
 tests/logs
 sync_models.py
 venv
-supplemental/PackageExporter.ipynb
 supplemental/PackageExporter.ipynb
 /models/detection
