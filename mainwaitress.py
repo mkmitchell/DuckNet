@@ -16,6 +16,7 @@ if __name__ == '__main__':
         
         # Reduce logging noise
         logging.getLogger('waitress').setLevel(logging.WARNING)
+        logging.getLogger('waitress.queue').setLevel(logging.ERROR) #too noisy
         
         serve(
             app, 
