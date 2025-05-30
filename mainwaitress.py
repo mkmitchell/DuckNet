@@ -4,13 +4,6 @@ from waitress import serve
 import os
 import logging
 
-from backend.app import App
-from backend.cli import CLI
-from waitress import serve
-import os
-import logging
-import sys
-
 if __name__ == '__main__':
     ok = CLI.run()
 
