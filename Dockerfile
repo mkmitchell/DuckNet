@@ -47,5 +47,5 @@ WORKDIR /app
 # Expose port 5050
 EXPOSE 5050
 
-# Run gunicorn when the container is launched
-CMD ["python", "-u", "-m", "gunicorn", "--bind", "0.0.0.0:5050", "--workers", "1", "--worker-class", "gevent", "--worker-connections", "1000", "--timeout", "86400", "maingunicorn:app"]
+# Run waitress when the container starts
+CMD ["python", "-u", "mainwaitress.py"]
