@@ -35,12 +35,12 @@ DuckDetection = class extends BaseDetection {
         for (let i = 0; i < n; i++) {
             let   label      = duckresults.labels[i];
             const confidence = Object.values(duckresults.predictions[i])[0]
-            if(!label || (label.toLowerCase()=='other spp.')){
+            if(!label || (label.toLowerCase()=='other')){
                 if(confidence > hiconf_threshold)
                     //filter high-confidence non-duck
                     continue;
                 else
-                    label = 'Other Spp.'
+                    label = 'Other'
             }
             
             let text = `${label}(${(confidence*100).toFixed(0)}%)`
@@ -64,7 +64,6 @@ DuckDetection = class extends BaseDetection {
       $flag_icon.css('visibility', flags.includes('unsure')? 'visible' : 'hidden')  //hide()/show() changes layout
 
       const empty      = flags.includes('empty');
-      // Removed multiple flag handling since multiple species is expected
             $flag_icon = $(`.table-row[filename="${filename}"]`).find('.amounts-flag');
       
       if(empty){
