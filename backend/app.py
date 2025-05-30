@@ -18,7 +18,7 @@ class App(BaseApp):
         if not os.path.exists(full_path):
             flask.abort(404)
         
-        print(f'Processing image with model {self.settings.active_models["detection"]}')
+        print(f'Processing image {imagename} with model {self.settings.active_models["detection"]}')
         model = self.settings.models['detection']
         result = model.process_image(full_path)
         
