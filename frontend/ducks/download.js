@@ -3,7 +3,7 @@
 DuckDownload = class extends ObjectDetectionDownload{
     //override
     static build_annotation_jsonfile(filename, results){
-        return super.build_annotation_jsonfile(filename, results, "Other Spp.")
+        return super.build_annotation_jsonfile(filename, results, "Other")
     }
 
 
@@ -46,7 +46,7 @@ DuckDownload = class extends ObjectDetectionDownload{
     static csv_data_for_files(filenames){
         const export_boxes = GLOBAL.settings.export_boxes;
         let header = [
-            'Filename', 'Date', 'Time', 'Flag', 'Multiple', 'Species', 'Code', 'Confidence level'
+            'Filename', 'Date', 'Time', 'Flag', 'Species', 'Code', 'Confidence level'
         ]
         if(export_boxes)
             header.push('Box')
@@ -83,8 +83,6 @@ DuckDownload = class extends ObjectDetectionDownload{
         
         const selectedlabels = results.labels;
 
-        const flags    = results.compute_flags(filename);
-        const multiple = flags.includes('multiple') ? 'multiple' : flags.includes('empty')? 'empty' : '';
         const unsures  = results.compute_flags(filename, true);       //per-result
         const datetime = results.datetime ?? "";
         const date     = datetime.substring(0,10).replace(/:/g,'.');
@@ -92,8 +90,8 @@ DuckDownload = class extends ObjectDetectionDownload{
 
         
         if(selectedlabels.length==0){
-                            //fname, date,time,unsure,multi,species,code,conf
-            let csv_data = [filename, date, time, '', multiple, '', '', '']
+                            //fname, date,time,unsure,species,code,conf
+            let csv_data = [filename, date, time, '', '', '', '']
             if(export_boxes)
                 csv_data.push('')
             return [csv_data];
@@ -105,7 +103,7 @@ DuckDownload = class extends ObjectDetectionDownload{
             const confidence = (results.predictions[i][label] ?? 1.0).toFixed(2);
             const code       = GLOBAL.species_codes[label] ?? '';
             
-            let csv_item     = [filename, date, time, unsures[i], multiple, label, code, confidence]
+            let csv_item     = [filename, date, time, unsures[i], label, code, confidence]
             if(export_boxes){
                 const box  = results.boxes[i].map( x => x.toFixed(1) ).join(' ');
                 csv_item.push(box)
@@ -115,5 +113,8 @@ DuckDownload = class extends ObjectDetectionDownload{
         return csv_data
     }
 }
+
+
+
 
 
