@@ -8,7 +8,7 @@ DuckTraining = class extends ObjectDetectionTraining {
     }
 
     static collect_class_counts(){
-        return super.collect_class_counts('Other Spp.')
+        return super.collect_class_counts('Other')
     }
 
 }
