@@ -3,7 +3,7 @@ DuckSettings = class extends BaseSettings{
     //override
     static apply_settings_from_modal(){
         super.apply_settings_from_modal()
-        
+        GLOBAL.settings['active_models']['detection'] = $("#settings-active-model").dropdown('get value');
         GLOBAL.settings['confidence_threshold'] = Number($("#settings-confidence-threshold-input")[0].value);
         GLOBAL.settings['flag_negatives']       = $("#settings-flag-negatives").checkbox('is checked');
         GLOBAL.settings['export_boxes']         = $("#settings-export-boxes").checkbox('is checked');
