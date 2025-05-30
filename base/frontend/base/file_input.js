@@ -132,11 +132,20 @@ BaseFileInput = class {
             total: Object.keys(result_files).length,
             value: 0, showActivity:false,
         })
+        
         try{
+            let completed = 0;
+            const total = Object.keys(result_files).length;
+            
             for(const [filename, results] of Object.entries(result_files)){
                 const unzipped_results = await Promise.all(results.map(maybe_unzip))
                 await this.load_result(filename, unzipped_results )
-                $modal.find('.progress').progress('increment')
+                
+                completed++;
+                // Update progress less frequently for large batches
+                if (completed % Math.max(1, Math.floor(total / 100)) === 0 || completed === total) {
+                    $modal.find('.progress').progress('set progress', completed);
+                }
             }
         } catch(error) {
             console.error(error);
