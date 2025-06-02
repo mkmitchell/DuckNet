@@ -166,10 +166,16 @@ BaseTraining = class BaseTraining{
     static on_save_model(){
         const new_modelname = $('#training-new-modelname')[0].value
         console.log('Saving new model as:', new_modelname)
+        if (new_modelname == ''){
+            console.log('No model name')
+            $('body').toast({message:'Saving failed.', class:'error', displayTime: 0, closeIcon: true})
+            return;
+        }
         $.get('/save_model', {newname: new_modelname, options:this.get_training_options()})
             .done( _ => $('#training-new-modelname-field').hide() )
             .fail( _ => $('body').toast({message:'Saving failed.', class:'error', displayTime: 0, closeIcon: true}) )
         $('#training-new-modelname')[0].value = ''
+        download_zip(`${new_modelname}.pt.zip`, `${new_modelname}.pt.zip`)
     }
 
     static async upload_training_data(filenames){
