@@ -136,16 +136,15 @@ class DuckDetector(torch.nn.Module):
         if new_classes:
             updated_classes = existing_classes + new_classes
             print(f"Found new classes: {new_classes}")
-            print(f"Updating class_list for training: {updated_classes}")
             self.class_list = updated_classes
         else:
             print(f"No new classes found. Using existing class list: {existing_classes}")
 
     def start_training_detector(self, imagefiles_train, jsonfiles_train,
-                imagefiles_test=None, jsonfiles_test=None,
-                classes_of_interest=None, negative_classes=[], lr=0.001,
-                epochs=10, callback=None, num_workers=0,
-                use_weighted_sampling=True, validation_split=0.2): 
+            imagefiles_test=None, jsonfiles_test=None,
+            classes_of_interest=None, negative_classes=[], lr=0.001,
+            epochs=10, callback=None, num_workers=0,
+            use_weighted_sampling=True, validation_split=0.2): 
 
         if imagefiles_test is None and jsonfiles_test is None and validation_split > 0:
             print(f"No validation data provided. Auto-splitting training data ({int((1-validation_split)*100)}% train, {int(validation_split*100)}% validation)")
@@ -159,31 +158,31 @@ class DuckDetector(torch.nn.Module):
         original_class_list = self.class_list.copy()
 
         if classes_of_interest is not None:
-            print(f"Using frontend class selection: {classes_of_interest}")
             self.class_list = classes_of_interest.copy()
 
         self.update_class_list(jsonfiles_train)
         
+        if jsonfiles_test:
+            self.update_class_list(jsonfiles_test)
+        
         known_negative_classes = [cls for cls in negative_classes if cls in original_class_list]
         unknown_negative_classes = [cls for cls in negative_classes if cls not in original_class_list]
+        
         if unknown_negative_classes:
-            print(f"Removing unknown negative classes (insufficient data): {unknown_negative_classes}")
             self.class_list = [cls for cls in self.class_list if cls not in unknown_negative_classes]
         
         for cls in known_negative_classes:
             if cls not in self.class_list:
                 self.class_list.append(cls)
-                print(f"Re-adding known negative class for down-weighting: {cls}")
-        
-        print(f"Known negative classes (will be down-weighted): {known_negative_classes}")
 
         if original_class_list != self.class_list:
             print(f"Class list changed. Reinitializing detector with {len(self.class_list)} classes.")
-            num_classes = int(len(self.class_list) + 1)
-            self.detector = Detector(num_classes=num_classes)
+            num_classes = int(len(self.class_list) + 1)  # +1 for background class
+            
+            old_detector = self.detector
+            self.detector = Detector(num_classes=num_classes, pretrained_detector=old_detector)
 
         object.__setattr__(self.detector, 'class_list', self.class_list.copy())
-
         print(f"Final class_list for training: {self.class_list}")
         
         ds_type = datasets.DetectionDataset
@@ -208,7 +207,7 @@ class DuckDetector(torch.nn.Module):
             )
         else:
             dl_train = datasets.create_dataloader(ds_train, batch_size=2, shuffle=True, num_workers=num_workers)
-        
+
         dl_test = None
         if imagefiles_test is not None:
             ds_test = ds_type(imagefiles_test, jsonfiles_test,
@@ -216,7 +215,7 @@ class DuckDetector(torch.nn.Module):
                             negative_classes=negative_classes,
                             class_list=self.class_list)
             dl_test = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
-        
+
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
         ret = task.fit(dl_train, dl_test, epochs=epochs)
         return (not task.stop_requested and not ret)
@@ -257,7 +256,6 @@ class DuckDetector(torch.nn.Module):
                 random_state=random_state
             )
         
-        # Convert back to file lists
         train_imagefiles = [img for img in imagefiles if img in train_images]
         test_imagefiles = [img for img in imagefiles if img in test_images]
         train_jsonfiles = [jsonfiles[imagefiles.index(img)] for img in train_imagefiles]
@@ -306,7 +304,6 @@ class DuckDetector(torch.nn.Module):
                 count = class_counts[cls]
                 if cls in known_negative_classes:
                     class_weights[cls] = 0.5
-                    print(f"  Setting known negative class '{cls}' weight to: 0.5")
                 else:
                     if max_count == min_count:
                         weight = 1.0 
@@ -332,10 +329,13 @@ class DuckDetector(torch.nn.Module):
                 sample_weights.append(weighted_sum / total_instances)
         
         print(f"  Background: {class_weights['background']:.3f}")
+        
+        printed_classes = set()
         for cls in self.class_list:
-            if cls in class_weights:
+            if cls in class_weights and cls not in printed_classes:
                 count = class_counts.get(cls, 0)
-                print(f"  {cls}: count={count}, weight={class_weights[cls]:.3f}")
+                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f}")
+                printed_classes.add(cls)
         
         return class_weights, sample_weights
     
@@ -358,7 +358,6 @@ class DuckDetector(torch.nn.Module):
             current_module = __name__.split('.')[-1]
             interns = [current_module] + MODULES
             
-            # Extern problematic modules/operations first
             pe.extern([
                 'torchvision.**',
                 'torchvision.ops.**',
@@ -366,14 +365,9 @@ class DuckDetector(torch.nn.Module):
                 'pt_soft_nms',
                 'pt_soft_nms.**',
             ])
-            
-            # Intern your modules
             pe.intern(interns)
-            
-            # Extern everything else
             pe.extern('**', exclude=interns)
             
-            # Force inclusion of internal modules
             for inmod in interns:
                 if inmod in sys.modules:
                     pe.save_source_file(inmod, sys.modules[inmod].__file__, dependencies=True)
@@ -609,7 +603,6 @@ class CustomRetinaNet(RetinaNet):
             keep_scores = keep_scores[score_order]
             keep_labels = keep_labels[score_order]
 
-            # Remove overlapping boxes regardless of class
             final_keep = []
             remaining_boxes_mask = torch.ones(
                 len(keep_boxes), dtype=torch.bool, device=keep_boxes.device
@@ -641,15 +634,30 @@ class CustomRetinaNet(RetinaNet):
         return detections
 
 class Detector(torch.nn.Module):
-    def __init__(self, num_classes: int = 10):
+    def __init__(self, num_classes: int = 10, pretrained_detector=None):
         super().__init__()
         self.basemodel = self._get_custom_retinanet_model(num_classes)
-        model_path = "S:/Savanna Institute/Deep Learning/DuckNet/RetinaNet/RetinaNet_ResNet50_FPN_DuckNet.pth"
-        self.basemodel.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        
+        if pretrained_detector is not None:
+            self._load_compatible_weights(pretrained_detector)
+            
         self._device_indicator = torch.nn.Parameter(torch.zeros(0))  # dummy parameter
     
+    def _load_compatible_weights(self, pretrained_detector):
+        """Load weights from pretrained detector, skipping incompatible layers (classification/regression heads)"""
+        pretrained_state = pretrained_detector.basemodel.state_dict()
+        current_state = self.basemodel.state_dict()
+        
+        compatible_weights = {}
+        
+        for key, value in pretrained_state.items():
+            if key in current_state and current_state[key].shape == value.shape:
+                compatible_weights[key] = value
+        
+        self.basemodel.load_state_dict(compatible_weights, strict=False)
+    
     def _get_custom_retinanet_model(self, num_classes: int):
-        trainable_backbone_layers = 0  # only update classification and regression heads
+        trainable_backbone_layers = 2 
         backbone = resnet_fpn_backbone(
             'resnet50',
             weights=torchvision.models.ResNet50_Weights.DEFAULT,
@@ -677,8 +685,8 @@ class Detector(torch.nn.Module):
             in_channels=in_channels,
             num_anchors=num_anchors,
             num_classes=num_classes,
-            alpha=0.5,
-            gamma_loss=3.0,
+            alpha=0.75,
+            gamma_loss=3.5,
             prior_probability=0.01,
             dropout_prob=0.25
         )
