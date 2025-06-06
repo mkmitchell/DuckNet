@@ -155,17 +155,22 @@ class MetricLogger(object):
             header, total_time_str, total_time / len(iterable)))
 
 class TrainingTask(torch.nn.Module):
+    stop_requested = False
+    
     def __init__(self, basemodule, epochs=10, lr=0.001, callback=None):
         super().__init__()
-        self.basemodule        = basemodule
-        self.epochs            = epochs
-        self.lr                = lr
+        self.basemodule = basemodule
+        self.epochs = epochs
+        self.lr = lr
         self.progress_callback = callback
+        self._stopping = False
     
     def training_step(self, batch):
         raise NotImplementedError()
+    
     def validation_step(self, batch):
         raise NotImplementedError()
+    
     def validation_epoch_end(self, logs):
         raise NotImplementedError()
     
@@ -188,15 +193,20 @@ class TrainingTask(torch.nn.Module):
     @property
     def device(self):
         return next(self.parameters()).device
-            
+    
+    def is_stop_requested(self):
+        """Check if training should stop - use direct class reference"""
+        return TrainingTask.stop_requested or self._stopping
+    
     def train_one_epoch(self, loader, optimizer, scheduler=None):
         self.basemodule.train()
         
-        for i,batch in enumerate(loader):
-            if self.__class__.stop_requested:
-                break
-            loss,logs  = self.training_step(batch)
-            
+        for i, batch in enumerate(loader):
+            if self.is_stop_requested():
+                print("Training stopped during batch processing")
+                return True 
+                
+            loss, logs = self.training_step(batch)
             logs['lr'] = optimizer.param_groups[0]['lr']
             
             optimizer.zero_grad()
@@ -207,13 +217,27 @@ class TrainingTask(torch.nn.Module):
                 
             self.callback.on_batch_end(logs, i, len(loader))
 
+            if self.is_stop_requested():
+                print("Training stopped after batch processing")
+                return True
+                
+        return False  
+
     def eval_one_epoch(self, loader):
+        if self.is_stop_requested():
+            print("Training stopped before validation")
+            return {}
+            
         all_outputs = []
         self.basemodule.eval()
         with torch.no_grad():
             for i, batch in enumerate(loader):
+                if self.is_stop_requested():
+                    print("Training stopped during validation")
+                    return {}
+                    
                 outputs, logs = self.validation_step(batch)
-                all_outputs += [outputs]
+                all_outputs.append(outputs)
 
         logs = self.validation_epoch_end(all_outputs)
         
@@ -234,25 +258,43 @@ class TrainingTask(torch.nn.Module):
             self.callback = PrintMetricsCallback()
         
         self.train().requires_grad_(True)
-        optim, sched  = self.configure_optimizers(loader_train)
+        optim, sched = self.configure_optimizers(loader_train)
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         torch.cuda.empty_cache()
+
+        TrainingTask.stop_requested = False
+        self._stopping = False
+        
         try:
             self.to(device)
-            self.__class__.stop_requested = False
             for e in range(self.epochs):
-                if self.__class__.stop_requested:
+                if self.is_stop_requested():
+                    print(f"Training stopped before epoch {e}")
                     break
-                self.train_one_epoch(loader_train, optim, sched)
-                
+
+                epoch_terminated = self.train_one_epoch(loader_train, optim, sched)
+                if epoch_terminated:
+                    print(f"Training epoch {e} terminated early")
+                    break
+
+                if self.is_stop_requested():
+                    print(f"Training stopped after epoch {e} before validation")
+                    break
+
                 if loader_valid:
                     self.eval_one_epoch(loader_valid)
                 
                 self.callback.on_epoch_end(e)
+
+                if self.is_stop_requested():
+                    print(f"Training stopped after epoch {e} completed")
+                    break
+                    
         except KeyboardInterrupt:
-            print('\nInterrupted')
+            print('\nTraining interrupted by keyboard')
+            self._stopping = True
         except Exception as e:
-            #prevent the exception getting to ipython (memory leak)
+            print(f"Exception during training: {type(e).__name__}")
             import traceback
             traceback.print_exc()
             return e
@@ -260,11 +302,14 @@ class TrainingTask(torch.nn.Module):
             self.zero_grad(set_to_none=True)
             self.eval().cpu().requires_grad_(False)
             torch.cuda.empty_cache()
+            
+        return TrainingTask.stop_requested or self._stopping
      
-    #XXX: class method to avoid boiler code
     @classmethod
     def request_stop(cls):
-        cls.stop_requested = True
+        """Request training stop using direct class name"""
+        print("Stop training requested")
+        TrainingTask.stop_requested = True
 
 class DetectionTask(TrainingTask):
     def training_step(self, batch):
