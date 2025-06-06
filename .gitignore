@@ -8,3 +8,4 @@ sync_models.py
 venv
 supplemental/PackageExporter.ipynb
 /models/detection
+/static
