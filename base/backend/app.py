@@ -7,7 +7,7 @@ import flask, jinja2
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--host',    type=str, default='localhost')
-parser.add_argument('--port',    type=int, default=5000)
+parser.add_argument('--port',    type=int, default=5050)
 parser.add_argument('--debug',   default=sys.argv[0].endswith('.py'))
 
 import backend
@@ -163,7 +163,7 @@ class App(flask.Flask):
         if not is_debug:
             with self.app_context():
                 print('Flask started')
-                webbrowser.open('http://localhost:5000', new=2)
+                webbrowser.open('http://localhost:5050', new=2)
     
     def process_image(self, imagename):
         full_path = get_cache_path(imagename)
