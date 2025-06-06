@@ -219,7 +219,6 @@ class TrainingTask(torch.nn.Module):
         
         if hasattr(self, 'callback'):
             self.callback.logs = logs
-            # Remove this redundant printer assignment section
 
         return logs
 
@@ -551,16 +550,13 @@ class TrainingProgressCallback:
         self.callback_fn(percent, logs)
 
     def on_epoch_end(self, epoch):
-        # Transfer validation metrics to printer BEFORE printing
         if hasattr(self, 'logs') and self.logs:
             for k, v in self.logs.items():
                 if isinstance(v, (float, int)) or k == 'per_class':
                     self._printer.logs[k] = v
         
-        # Now print the metrics
         self._printer.on_epoch_end(epoch)
         
-        # Clear logs after printing
         self._printer.clear_logs()
         
         self.epoch = epoch + 1
