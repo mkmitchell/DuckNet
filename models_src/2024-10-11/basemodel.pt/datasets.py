@@ -79,7 +79,7 @@ class DetectionDataset(Dataset):
         super().__init__(jpgfiles, jsonfiles)
         self.augment = augment
         self.negative_classes = negative_classes
-        self.class_list = class_list[:] # Copy to avoid modifying the original list
+        self.class_list = class_list[:]
         self.label_dict = {i + 1: label for i, label in enumerate(self.class_list)}
         self.rev_label_dict = {label: i + 1 for i, label in enumerate(self.class_list)}
 
