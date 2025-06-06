@@ -137,8 +137,6 @@ class DuckDetector(torch.nn.Module):
             updated_classes = existing_classes + new_classes
             print(f"Found new classes: {new_classes}")
             self.class_list = updated_classes
-        else:
-            print(f"No new classes found. Using existing class list: {existing_classes}")
 
     def start_training_detector(self, imagefiles_train, jsonfiles_train,
             imagefiles_test=None, jsonfiles_test=None,
