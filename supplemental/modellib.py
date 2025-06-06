@@ -13,7 +13,8 @@ import torchvision.ops.boxes as box_ops
 from typing import Callable, Dict, List, Optional, NamedTuple
 from pt_soft_nms import batched_soft_nms
 import time, sys
-from collections import Counter
+from collections import Counter, defaultdict
+import numpy as np
 
 if "__torch_package__" in dir():
     import torch_package_importer # type: ignore
@@ -139,39 +140,38 @@ class DuckDetector(torch.nn.Module):
             self.class_list = updated_classes
 
     def start_training_detector(self, imagefiles_train, jsonfiles_train,
-            imagefiles_test=None, jsonfiles_test=None,
-            classes_of_interest=None, negative_classes=[], lr=0.001,
-            epochs=10, callback=None, num_workers=0,
-            use_weighted_sampling=True, validation_split=0.2): 
+        imagefiles_test=None, jsonfiles_test=None,
+        classes_of_interest=None, negative_classes=[], lr=0.001,
+        epochs=10, callback=None, num_workers=0,
+        use_weighted_sampling=True, validation_split=0.2): 
 
         if imagefiles_test is None and jsonfiles_test is None and validation_split > 0:
             print(f"No validation data provided. Auto-splitting training data ({int((1-validation_split)*100)}% train, {int(validation_split*100)}% validation)")
             
             imagefiles_train, imagefiles_test, jsonfiles_train, jsonfiles_test = self._stratified_split(
-                imagefiles_train, jsonfiles_train, test_size=validation_split, random_state=42
+                imagefiles_train, jsonfiles_train, test_size=validation_split, random_state=666
             )
             
             print(f"Split: {len(imagefiles_train)} training files, {len(imagefiles_test)} validation files")
-        
+
         original_class_list = self.class_list.copy()
 
         if classes_of_interest is not None:
             self.class_list = classes_of_interest.copy()
 
-        self.update_class_list(jsonfiles_train)
-        
-        if jsonfiles_test:
-            self.update_class_list(jsonfiles_test)
-        
-        known_negative_classes = [cls for cls in negative_classes if cls in original_class_list]
-        unknown_negative_classes = [cls for cls in negative_classes if cls not in original_class_list]
-        
-        if unknown_negative_classes:
-            self.class_list = [cls for cls in self.class_list if cls not in unknown_negative_classes]
-        
-        for cls in known_negative_classes:
-            if cls not in self.class_list:
-                self.class_list.append(cls)
+        all_json_files = jsonfiles_train + (jsonfiles_test or [])
+        unique_classes = set()
+        for jf in all_json_files:
+            labels = datasets.get_labels_from_jsonfile(jf)
+            unique_classes.update(labels)
+
+        new_classes = [cls for cls in unique_classes 
+                      if cls not in self.class_list and cls not in negative_classes]
+        new_classes.sort()
+
+        if new_classes:
+            print(f"Found new classes: {new_classes}")
+            self.class_list.extend(new_classes)
 
         if original_class_list != self.class_list:
             print(f"Class list changed. Reinitializing detector with {len(self.class_list)} classes.")
@@ -182,16 +182,47 @@ class DuckDetector(torch.nn.Module):
 
         object.__setattr__(self.detector, 'class_list', self.class_list.copy())
         print(f"Final class_list for training: {self.class_list}")
+
+        filtered_train_images = []
+        filtered_train_jsons = []
         
+        for img_file, json_file in zip(imagefiles_train, jsonfiles_train):
+            labels = datasets.get_labels_from_jsonfile(json_file)
+            if all(label in self.class_list for label in labels):
+                filtered_train_images.append(img_file)
+                filtered_train_jsons.append(json_file)
+
+        if len(filtered_train_images) < len(imagefiles_train):
+            print(f"Filtered training set: {len(imagefiles_train)} → {len(filtered_train_images)} files")
+            imagefiles_train = filtered_train_images
+            jsonfiles_train = filtered_train_jsons
+
+        if imagefiles_test is not None and jsonfiles_test is not None:
+            filtered_image_files = []
+            filtered_json_files = []
+            
+            for img_file, json_file in zip(imagefiles_test, jsonfiles_test):
+                labels = datasets.get_labels_from_jsonfile(json_file)
+                if all(label in self.class_list for label in labels):
+                    filtered_image_files.append(img_file)
+                    filtered_json_files.append(json_file)
+            
+            if len(filtered_image_files) < len(imagefiles_test):
+                print(f"Filtered validation set: {len(imagefiles_test)} → {len(filtered_image_files)} files")
+                imagefiles_test = filtered_image_files
+                jsonfiles_test = filtered_json_files
+
+        self._print_class_distribution(imagefiles_train, jsonfiles_train, imagefiles_test, jsonfiles_test)
+
         ds_type = datasets.DetectionDataset
         ds_train = ds_type(imagefiles_train, jsonfiles_train,
                         augment=True,
                         negative_classes=negative_classes,
                         class_list=self.class_list)
-        
+
         if use_weighted_sampling:
             _, sample_weights = self._calculate_class_weights(
-                jsonfiles_train, known_negative_classes
+                jsonfiles_train, negative_classes, original_class_list
             )
             
             sampler = torch.utils.data.WeightedRandomSampler(
@@ -217,52 +248,128 @@ class DuckDetector(torch.nn.Module):
         task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
         ret = task.fit(dl_train, dl_test, epochs=epochs)
         return (not task.stop_requested and not ret)
+    
+    def _print_class_distribution(self, train_images, train_jsons, test_images, test_jsons):
+        """Print class distribution after filtering"""
+        image_class_distribution = {}
 
-    def _stratified_split(self, imagefiles, jsonfiles, test_size=0.2, random_state=42):
-        """Stratified split based on most frequent class per image"""
-        from sklearn.model_selection import train_test_split
+        for img_file, json_file in zip(train_images, train_jsons):
+            labels = datasets.get_labels_from_jsonfile(json_file)
+            image_class_distribution[img_file] = labels
+
+        for img_file, json_file in zip(test_images, test_jsons):
+            labels = datasets.get_labels_from_jsonfile(json_file)
+            image_class_distribution[img_file] = labels
         
+        train_class_counts = Counter()
+        test_class_counts = Counter()
+        
+        for img in train_images:
+            train_class_counts.update(image_class_distribution[img])
+        for img in test_images:
+            test_class_counts.update(image_class_distribution[img])
+        
+        table_str = "\nPost-filtering class distribution:\n"
+        table_str += f"{'Class':<10} {'Train':<8} {'Test':<8} {'Total':<8} {'Train %':<8}\n"
+        table_str += "-" * 50 + "\n"
+        
+        all_classes = sorted(set(train_class_counts.keys()) | set(test_class_counts.keys()))
+        for cls in all_classes:
+            train_count = train_class_counts[cls]
+            test_count = test_class_counts[cls]
+            total = train_count + test_count
+            train_pct = train_count / total * 100 if total > 0 else 0
+            table_str += f"{cls:<10} {train_count:<8} {test_count:<8} {total:<8} {train_pct:.1f}%\n"
+
+        print(table_str, flush=True)
+
+    def _stratified_split(self, imagefiles, jsonfiles, test_size=0.2, random_state=666):
+        """Stratified split that ensures all classes appear in both train and test sets"""
+        from sklearn.model_selection import train_test_split
+
         image_class_distribution = {}
         for img_file, json_file in zip(imagefiles, jsonfiles):
             labels = datasets.get_labels_from_jsonfile(json_file)
             image_class_distribution[img_file] = labels if labels else ['background']
-        
-        all_images = list(image_class_distribution.keys())
-        representative_labels = []
-        
-        for image in all_images:
-            labels = image_class_distribution[image]
-            if labels:
-                most_frequent = max(set(labels), key=labels.count)
-                representative_labels.append(most_frequent)
-            else:
-                representative_labels.append('background')
-        
-        try:
-            train_images, test_images = train_test_split(
-                all_images,
-                test_size=test_size,
-                stratify=representative_labels,
-                random_state=random_state
-            )
-        except ValueError as e:
-            print(f"Stratified split failed: {e}")
-            print("Falling back to random split.")
-            train_images, test_images = train_test_split(
-                all_images,
-                test_size=test_size,
-                random_state=random_state
-            )
-        
-        train_imagefiles = [img for img in imagefiles if img in train_images]
-        test_imagefiles = [img for img in imagefiles if img in test_images]
-        train_jsonfiles = [jsonfiles[imagefiles.index(img)] for img in train_imagefiles]
-        test_jsonfiles = [jsonfiles[imagefiles.index(img)] for img in test_imagefiles]
-        
-        return train_imagefiles, test_imagefiles, train_jsonfiles, test_jsonfiles
 
-    def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str]):
-        """Calculate class weights according to your criteria"""
+        class_to_images = defaultdict(list)
+        for img, classes in image_class_distribution.items():
+            for cls in classes:
+                class_to_images[cls].append(img)
+
+        train_images = set()
+        test_images = set()
+
+        for cls, images in class_to_images.items():
+            if len(images) == 1:
+                train_images.add(images[0])
+                test_images.add(images[0])
+            else:
+                np.random.seed(random_state + hash(cls) % 10000)
+                shuffled = np.random.permutation(images).tolist()
+                train_images.add(shuffled[0])
+                test_images.add(shuffled[1 % len(shuffled)])
+
+        remaining_images = [img for img in imagefiles 
+                        if img not in train_images or img not in test_images]
+        
+        if remaining_images:
+            remaining_class_distribution = {img: image_class_distribution[img] 
+                                        for img in remaining_images}
+            
+            class_counts = Counter()
+            for labels in remaining_class_distribution.values():
+                class_counts.update(labels)
+
+            top_classes = [cls for cls, _ in class_counts.most_common(3)]
+            
+            stratification_features = []
+            for img in remaining_images:
+                img_labels = set(remaining_class_distribution[img])
+                feature = ''.join(['1' if cls in img_labels else '0' for cls in top_classes])
+                stratification_features.append(feature)
+
+            target_test_size = int(len(imagefiles) * test_size)
+            current_test_size = len(test_images)
+            remaining_test_size = max(0, target_test_size - current_test_size)
+            adjusted_test_size = remaining_test_size / len(remaining_images)
+            
+            train_remaining, test_remaining = train_test_split(
+                remaining_images,
+                test_size=adjusted_test_size,
+                stratify=stratification_features,
+                random_state=random_state
+            )
+            
+            train_images.update(train_remaining)
+            test_images.update(test_remaining)
+
+        train_images = list(train_images - test_images)
+        test_images = list(test_images)
+
+        target_test_count = int(len(imagefiles) * test_size)
+        if len(test_images) < target_test_count:
+            move_count = target_test_count - len(test_images)
+            np.random.seed(random_state)
+            to_move = np.random.choice(train_images, size=move_count, replace=False)
+            for img in to_move:
+                train_images.remove(img)
+                test_images.append(img)
+        elif len(test_images) > target_test_count:
+            move_count = len(test_images) - target_test_count
+            np.random.seed(random_state)
+            to_move = np.random.choice(test_images, size=move_count, replace=False)
+            for img in to_move:
+                test_images.remove(img)
+                train_images.append(img)
+
+        train_json = [jsonfiles[imagefiles.index(img)] for img in train_images]
+        test_json = [jsonfiles[imagefiles.index(img)] for img in test_images]
+        
+        return train_images, test_images, train_json, test_json
+    
+    def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
+        """Calculate class weights with special boosting for new classes"""
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -270,7 +377,9 @@ class DuckDetector(torch.nn.Module):
             class_counts.update(labels)
         
         print("Calculating class weights for balanced sampling...")
-
+        new_classes = [cls for cls in self.class_list 
+                    if cls not in original_classes and cls not in known_negative_classes]
+        
         hen_class = 'Hen'
         non_hen_classes = [cls for cls in self.class_list if cls != hen_class]
 
@@ -295,7 +404,7 @@ class DuckDetector(torch.nn.Module):
         min_count = min(regular_counts)
         
         class_weights = {}
-        class_weights['background'] = 0.1
+        class_weights['background'] = 0.05
 
         for cls in non_hen_classes:
             if cls in class_counts:
@@ -314,6 +423,20 @@ class DuckDetector(torch.nn.Module):
             weight = median_count / count
             weight = min(1.0, weight) 
             class_weights[hen_class] = weight
+        
+        for cls in new_classes:
+            if cls in class_counts:
+                count = class_counts[cls]
+                current_weight = class_weights[cls]
+                
+                if count < median_count / 2:
+                    boost_factor = 2.0
+                elif count < median_count:
+                    boost_factor = 1.75
+                else:
+                    boost_factor = 1.5
+                    
+                class_weights[cls] = current_weight * boost_factor
         
         sample_weights = []
         for jf in jsonfiles_train:
@@ -336,7 +459,7 @@ class DuckDetector(torch.nn.Module):
                 printed_classes.add(cls)
         
         return class_weights, sample_weights
-    
+
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
     
