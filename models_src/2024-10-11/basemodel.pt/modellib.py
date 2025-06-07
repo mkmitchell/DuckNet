@@ -369,7 +369,7 @@ class DuckDetector(torch.nn.Module):
         return train_images, test_images, train_json, test_json
     
     def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
-        """Calculate class weights with special boosting for new classes"""
+        """Calculate class weights with special boosting for new classes and normalize to median=1.0"""
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -415,7 +415,8 @@ class DuckDetector(torch.nn.Module):
                     if max_count == min_count:
                         weight = 1.0 
                     else:
-                        weight = 1.5 - (count - min_count) / (max_count - min_count) * 1.0
+                        beta = 0.9999
+                        weight = (1 - beta) / (1 - beta**count)
                     class_weights[cls] = weight
         
         if hen_class in class_counts:
@@ -430,13 +431,30 @@ class DuckDetector(torch.nn.Module):
                 current_weight = class_weights[cls]
                 
                 if count < median_count / 2:
-                    boost_factor = 2.0
+                    boost_factor = 2.5  
                 elif count < median_count:
-                    boost_factor = 1.75
+                    boost_factor = 2.0 
                 else:
                     boost_factor = 1.5
                     
                 class_weights[cls] = current_weight * boost_factor
+
+        regular_weights = [class_weights[cls] for cls in regular_classes if cls in class_weights]
+        if regular_weights:
+            sorted_weights = sorted(regular_weights)
+            median_weight_idx = len(sorted_weights) // 2
+            if len(sorted_weights) % 2 == 0 and median_weight_idx < len(sorted_weights):
+                median_weight = (sorted_weights[median_weight_idx-1] + sorted_weights[median_weight_idx]) / 2
+            else:
+                median_weight = sorted_weights[median_weight_idx]
+
+            bg_weight = class_weights['background']
+            
+            for cls in class_weights:
+                if cls != 'background':
+                    class_weights[cls] = class_weights[cls] / median_weight
+
+            class_weights['background'] = bg_weight
         
         sample_weights = []
         for jf in jsonfiles_train:
@@ -806,8 +824,8 @@ class Detector(torch.nn.Module):
             in_channels=in_channels,
             num_anchors=num_anchors,
             num_classes=num_classes,
-            alpha=0.75,
-            gamma_loss=3.5,
+            alpha=0.5,
+            gamma_loss=2.0,
             prior_probability=0.01,
             dropout_prob=0.25
         )
@@ -816,7 +834,7 @@ class Detector(torch.nn.Module):
             num_anchors=num_anchors,
             _loss_type="smooth_l1",
             beta_loss=0.6,
-            lambda_loss=1.2,
+            lambda_loss=0.75,
             dropout_prob=0.25
         )
         model.anchor_generator = AnchorGenerator( # sizes and ratios calculated from dataset resized to 810x1440
