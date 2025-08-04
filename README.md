@@ -27,7 +27,7 @@ DuckNet includes:
 
 ## 📖 Citation
 
-Loken, Z. J., Ringelman, K. M., Mini, A., James, D., & Mitchell, M. (2025). *DuckNet: an open-source deep learning tool for waterfowl species identification in UAV imagery.* Remote Sensing in Ecology and Conservation (In review).
+Loken, Z. J., Ringelman, K. M., Mini, A., James, D., & Mitchell, M. (2025). *DuckNet: an open-source deep learning tool for waterfowl species identification in UAV imagery.* Remote Sensing in Ecology and Conservation (Accepted July 2025).
 
 - **Corresponding author**: Zack Loken (zack@savannainstitute.org)  
 - **Lead developer**: Mike Mitchell (mmitchell@ducks.org)
