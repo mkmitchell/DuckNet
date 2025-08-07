@@ -1,0 +1,169 @@
+{
+  "version": "2.0",
+  "schema_ref": "https://darwin-public.s3.eu-west-1.amazonaws.com/darwin_json/2.0/schema.json",
+  "item": {
+    "name": "DJI_20221122102311_0010_Z.JPG",
+    "path": "/",
+    "source_info": {
+      "dataset": {
+        "name": "Winter 22 - Zoom Camera Images",
+        "slug": "winter-22-zoom-camera-images",
+        "dataset_management_url": "https://darwin.v7labs.com/datasets/614552/dataset-management"
+      },
+      "item_id": "018624b7-57cb-5264-b3c2-db8c5bd61266",
+      "team": {
+        "name": "MAV Dronework",
+        "slug": "mav-dronework"
+      },
+      "workview_url": "https://darwin.v7labs.com/workview?dataset=614552&item=018624b7-57cb-5264-b3c2-db8c5bd61266"
+    },
+    "slots": [
+      {
+        "type": "image",
+        "slot_name": "0",
+        "width": 5184,
+        "height": 2916,
+        "thumbnail_url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/files/62ea5289-cab7-42a5-aee8-e66843216715/thumbnail",
+        "source_files": [
+          {
+            "file_name": "DJI_20221122102311_0010_Z.JPG",
+            "url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/uploads/09974936-75c9-404e-bfce-5ef83bd7ae2b"
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": [
+    {
+      "bounding_box": {
+        "h": 186.56999999999994,
+        "w": 466.8000000000002,
+        "x": 2075.37,
+        "y": 1595.27
+      },
+      "id": "aca8feda-38c1-42e1-aee0-9106c1ec3d94",
+      "name": "MALL",
+      "polygon": {
+        "paths": [
+          [
+            {
+              "x": 2099.54,
+              "y": 1777.31
+            },
+            {
+              "x": 2143.35,
+              "y": 1745.59
+            },
+            {
+              "x": 2141.84,
+              "y": 1767.49
+            },
+            {
+              "x": 2156.95,
+              "y": 1778.82
+            },
+            {
+              "x": 2156.95,
+              "y": 1779.58
+            },
+            {
+              "x": 2189.43,
+              "y": 1781.84
+            },
+            {
+              "x": 2225.69,
+              "y": 1765.22
+            },
+            {
+              "x": 2305.75,
+              "y": 1764.47
+            },
+            {
+              "x": 2381.29,
+              "y": 1746.34
+            },
+            {
+              "x": 2456.06,
+              "y": 1726.7
+            },
+            {
+              "x": 2499.12,
+              "y": 1697.24
+            },
+            {
+              "x": 2493.83,
+              "y": 1688.18
+            },
+            {
+              "x": 2521.02,
+              "y": 1678.36
+            },
+            {
+              "x": 2542.17,
+              "y": 1639.84
+            },
+            {
+              "x": 2539.15,
+              "y": 1602.07
+            },
+            {
+              "x": 2504.41,
+              "y": 1612.65
+            },
+            {
+              "x": 2496.85,
+              "y": 1595.27
+            },
+            {
+              "x": 2422.83,
+              "y": 1601.32
+            },
+            {
+              "x": 2354.09,
+              "y": 1605.09
+            },
+            {
+              "x": 2284.6,
+              "y": 1605.85
+            },
+            {
+              "x": 2251.37,
+              "y": 1613.4
+            },
+            {
+              "x": 2222.66,
+              "y": 1642.1
+            },
+            {
+              "x": 2175.08,
+              "y": 1632.28
+            },
+            {
+              "x": 2140.33,
+              "y": 1645.13
+            },
+            {
+              "x": 2116.92,
+              "y": 1673.07
+            },
+            {
+              "x": 2112.39,
+              "y": 1701.78
+            },
+            {
+              "x": 2075.37,
+              "y": 1759.18
+            },
+            {
+              "x": 2084.44,
+              "y": 1774.29
+            }
+          ]
+        ]
+      },
+      "slot_names": [
+        "0"
+      ]
+    }
+  ]
+}

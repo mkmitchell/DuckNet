@@ -1,0 +1,161 @@
+{
+  "version": "2.0",
+  "schema_ref": "https://darwin-public.s3.eu-west-1.amazonaws.com/darwin_json/2.0/schema.json",
+  "item": {
+    "name": "DJI_20221221100515_0096_Z.JPG",
+    "path": "/",
+    "source_info": {
+      "dataset": {
+        "name": "Winter 22 - Zoom Camera Images",
+        "slug": "winter-22-zoom-camera-images",
+        "dataset_management_url": "https://darwin.v7labs.com/datasets/614552/dataset-management"
+      },
+      "item_id": "018624b7-57e4-4ce2-2148-cf6c33446812",
+      "team": {
+        "name": "MAV Dronework",
+        "slug": "mav-dronework"
+      },
+      "workview_url": "https://darwin.v7labs.com/workview?dataset=614552&item=018624b7-57e4-4ce2-2148-cf6c33446812"
+    },
+    "slots": [
+      {
+        "type": "image",
+        "slot_name": "0",
+        "width": 5184,
+        "height": 2916,
+        "thumbnail_url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/files/bb65b7c5-74a6-4a43-b1f6-23da90349ab9/thumbnail",
+        "source_files": [
+          {
+            "file_name": "DJI_20221221100515_0096_Z.JPG",
+            "url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/uploads/1151d3e5-09e5-421c-8ed0-e416bd279591"
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": [
+    {
+      "bounding_box": {
+        "h": 486.79999999999995,
+        "w": 856.9800000000002,
+        "x": 1211.82,
+        "y": 1027.66
+      },
+      "id": "bbe2abdc-6dc3-4fe7-a01f-669fd7b0e038",
+      "name": "Hen",
+      "polygon": {
+        "paths": [
+          [
+            {
+              "x": 1266.59,
+              "y": 1475.93
+            },
+            {
+              "x": 1266.59,
+              "y": 1476.94
+            },
+            {
+              "x": 1408.57,
+              "y": 1514.46
+            },
+            {
+              "x": 1524.19,
+              "y": 1508.38
+            },
+            {
+              "x": 1705.72,
+              "y": 1431.3
+            },
+            {
+              "x": 1858.86,
+              "y": 1303.52
+            },
+            {
+              "x": 1914.64,
+              "y": 1203.11
+            },
+            {
+              "x": 2015.04,
+              "y": 1106.77
+            },
+            {
+              "x": 2009.97,
+              "y": 1095.61
+            },
+            {
+              "x": 2044.46,
+              "y": 1083.44
+            },
+            {
+              "x": 2043.44,
+              "y": 1065.19
+            },
+            {
+              "x": 2067.78,
+              "y": 1046.93
+            },
+            {
+              "x": 2068.8,
+              "y": 1027.66
+            },
+            {
+              "x": 1999.83,
+              "y": 1033.75
+            },
+            {
+              "x": 1999.83,
+              "y": 1034.76
+            },
+            {
+              "x": 1926.81,
+              "y": 1061.13
+            },
+            {
+              "x": 1743.25,
+              "y": 1080.4
+            },
+            {
+              "x": 1584.02,
+              "y": 1089.53
+            },
+            {
+              "x": 1503.9,
+              "y": 1100.68
+            },
+            {
+              "x": 1398.43,
+              "y": 1131.11
+            },
+            {
+              "x": 1329.46,
+              "y": 1135.16
+            },
+            {
+              "x": 1301.07,
+              "y": 1158.49
+            },
+            {
+              "x": 1284.84,
+              "y": 1228.47
+            },
+            {
+              "x": 1211.82,
+              "y": 1312.64
+            },
+            {
+              "x": 1221.96,
+              "y": 1398.85
+            },
+            {
+              "x": 1254.42,
+              "y": 1462.74
+            }
+          ]
+        ]
+      },
+      "slot_names": [
+        "0"
+      ]
+    }
+  ]
+}

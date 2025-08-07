@@ -1,0 +1,169 @@
+{
+  "version": "2.0",
+  "schema_ref": "https://darwin-public.s3.eu-west-1.amazonaws.com/darwin_json/2.0/schema.json",
+  "item": {
+    "name": "DJI_20221122094952_0092_Z.JPG",
+    "path": "/",
+    "source_info": {
+      "dataset": {
+        "name": "Winter 22 - Zoom Camera Images",
+        "slug": "winter-22-zoom-camera-images",
+        "dataset_management_url": "https://darwin.v7labs.com/datasets/614552/dataset-management"
+      },
+      "item_id": "018624b7-57cb-c7a2-60ee-9059cb20b04b",
+      "team": {
+        "name": "MAV Dronework",
+        "slug": "mav-dronework"
+      },
+      "workview_url": "https://darwin.v7labs.com/workview?dataset=614552&item=018624b7-57cb-c7a2-60ee-9059cb20b04b"
+    },
+    "slots": [
+      {
+        "type": "image",
+        "slot_name": "0",
+        "width": 5184,
+        "height": 2916,
+        "thumbnail_url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/files/66a4d264-5bf6-4a8f-b560-f5be5379d189/thumbnail",
+        "source_files": [
+          {
+            "file_name": "DJI_20221122094952_0092_Z.JPG",
+            "url": "https://darwin.v7labs.com/api/v2/teams/mav-dronework/uploads/c2264c17-3b38-4339-be87-658c12bddace"
+          }
+        ]
+      }
+    ]
+  },
+  "annotations": [
+    {
+      "bounding_box": {
+        "h": 815.9699999999999,
+        "w": 537.0900000000001,
+        "x": 2229.37,
+        "y": 847.09
+      },
+      "id": "1593d3a7-bb2c-43ca-b9f3-a75332f57594",
+      "name": "GADW",
+      "polygon": {
+        "paths": [
+          [
+            {
+              "x": 2450.12,
+              "y": 1524.11
+            },
+            {
+              "x": 2513.19,
+              "y": 1612.8
+            },
+            {
+              "x": 2611.74,
+              "y": 1663.06
+            },
+            {
+              "x": 2668.9,
+              "y": 1643.35
+            },
+            {
+              "x": 2724.08,
+              "y": 1602.95
+            },
+            {
+              "x": 2766.46,
+              "y": 1414.72
+            },
+            {
+              "x": 2749.7,
+              "y": 1249.16
+            },
+            {
+              "x": 2706.34,
+              "y": 1171.31
+            },
+            {
+              "x": 2631.45,
+              "y": 1118.09
+            },
+            {
+              "x": 2526.99,
+              "y": 1029.4
+            },
+            {
+              "x": 2522.06,
+              "y": 881.58
+            },
+            {
+              "x": 2491.51,
+              "y": 847.09
+            },
+            {
+              "x": 2407.74,
+              "y": 853.99
+            },
+            {
+              "x": 2363.4,
+              "y": 930.85
+            },
+            {
+              "x": 2364.38,
+              "y": 987.03
+            },
+            {
+              "x": 2391.98,
+              "y": 1037.29
+            },
+            {
+              "x": 2356.5,
+              "y": 1152.59
+            },
+            {
+              "x": 2313.14,
+              "y": 1251.13
+            },
+            {
+              "x": 2300.33,
+              "y": 1304.35
+            },
+            {
+              "x": 2313.14,
+              "y": 1391.07
+            },
+            {
+              "x": 2383.11,
+              "y": 1491.59
+            },
+            {
+              "x": 2403.8,
+              "y": 1505.39
+            },
+            {
+              "x": 2315.11,
+              "y": 1566.49
+            },
+            {
+              "x": 2243.17,
+              "y": 1574.37
+            },
+            {
+              "x": 2229.37,
+              "y": 1589.15
+            },
+            {
+              "x": 2258.94,
+              "y": 1598.02
+            },
+            {
+              "x": 2332.85,
+              "y": 1589.15
+            },
+            {
+              "x": 2430.41,
+              "y": 1537.91
+            }
+          ]
+        ]
+      },
+      "slot_names": [
+        "0"
+      ]
+    }
+  ]
+}
