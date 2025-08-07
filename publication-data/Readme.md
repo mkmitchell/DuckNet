@@ -28,7 +28,7 @@ This folder contains the complete implementation and dataset for PyTorch object 
 ### Model
 - **`model/RetinaNet_ResNet50_FPN_DuckNet.pth`** - Trained model weights
 
-### Legal
+### License
 - **`LICENSE.pdf`** - CC BY-NC license agreement with Wiley (applies to all contents)
 
 ## Quick Start
