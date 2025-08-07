@@ -40,12 +40,6 @@ This folder contains the complete implementation and dataset for PyTorch object 
 
 2. Open and run the Jupyter notebook
 
-## Requirements
-
-- Python 3.x
-- PyTorch
-- See `environment.yml` for complete dependencies
-
 ## License
 
 This work is licensed under CC BY-NC (see `LICENSE.pdf` for details).
