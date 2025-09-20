@@ -369,8 +369,7 @@ class DuckDetector(torch.nn.Module):
         return train_images, test_images, train_json, test_json
     
     def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
-        """Calculate class weights using effective number of samples approach"""
-        import statistics
+        """Calculate class weights with separate normalization for original vs new classes"""
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -382,6 +381,7 @@ class DuckDetector(torch.nn.Module):
         beta = 0.99 
         class_weights = {}
         
+        # Calculate effective number weights for all classes
         for class_name in self.class_list:
             count = class_counts.get(class_name, 0)
             if count > 0:
@@ -395,20 +395,33 @@ class DuckDetector(torch.nn.Module):
             if cls in class_weights:
                 class_weights[cls] = 0.5
         
-        # Cap previously learned classes at 1.0 (they already have pre-trained advantage)
-        for cls in original_classes:
-            if cls in class_weights:
-                class_weights[cls] = min(class_weights[cls], 1.0)
+        # Separate original and new classes
+        original_weights = {cls: class_weights[cls] for cls in original_classes 
+                        if cls in class_weights and cls not in known_negative_classes}
         
-        # Normalize so median weight = 1.0
-        regular_weights = [class_weights[cls] for cls in self.class_list 
-                        if cls not in known_negative_classes and cls in class_weights]
+        new_classes = [cls for cls in self.class_list 
+                    if cls not in original_classes and cls not in known_negative_classes]
+        new_weights = {cls: class_weights[cls] for cls in new_classes if cls in class_weights}
         
-        if regular_weights:
-            median_weight = statistics.median(regular_weights)
-            for class_name in class_weights:
-                if class_name not in known_negative_classes:
-                    class_weights[class_name] /= median_weight
+        # Normalize original classes: rarest gets 1.0, others scale down proportionally
+        if original_weights:
+            max_original_weight = max(original_weights.values())
+            for cls in original_weights:
+                class_weights[cls] = original_weights[cls] / max_original_weight  # Range: (0, 1.0]
+        
+        # Normalize new classes: range from 1.5 (most common) to 3.5 (rarest)
+        if new_weights:
+            min_new_weight = min(new_weights.values())
+            max_new_weight = max(new_weights.values())
+            
+            if max_new_weight > min_new_weight:  
+                for cls in new_weights:
+                    normalized = (new_weights[cls] - min_new_weight) / (max_new_weight - min_new_weight)
+                    class_weights[cls] = 1.5 + (normalized * 2.0)  # Range: [1.5, 3.5]
+            else:
+                # All new classes have same count
+                for cls in new_weights:
+                    class_weights[cls] = 2.5  # Middle of [1.5, 3.5] range
         
         class_weights['background'] = 0.1
         
@@ -417,28 +430,26 @@ class DuckDetector(torch.nn.Module):
         for jf in jsonfiles_train:
             labels = datasets.get_labels_from_jsonfile(jf)
             if len(labels) == 0:
-                # Image with no annotations (background only)
                 sample_weights.append(class_weights['background'])
             else:
-                # Use average weight of all classes in this image
                 label_counts = Counter(labels)
                 total_instances = sum(label_counts.values())
                 weighted_sum = sum(class_weights.get(label, 1.0) * count for label, count in label_counts.items())
                 sample_weights.append(weighted_sum / total_instances)
         
-        # Print weights for debugging
+        # Print weights
         print(f"  Background: {class_weights['background']:.3f}")
         
         printed_classes = set()
         for cls in self.class_list:
             if cls in class_weights and cls not in printed_classes:
                 count = class_counts.get(cls, 0)
-                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f}")
+                class_type = "original" if cls in original_classes else "new"
+                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f} ({class_type})")
                 printed_classes.add(cls)
         
         return class_weights, sample_weights
     
-
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
     
