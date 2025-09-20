@@ -173,15 +173,16 @@ class TrainingTask(torch.nn.Module):
     
     def validation_epoch_end(self, logs):
         raise NotImplementedError()
-    
+
     def warmup_lr_scheduler(self, optimizer, num_batches_in_epoch):
         """Creates a scheduler that warms up linearly from 10% to 100% over initial epoch"""
         def f(x):
             epoch = x // num_batches_in_epoch
+            batch_in_epoch = x % num_batches_in_epoch           
             if epoch >= 1: 
                 return 1.0
-            batch_in_epoch = x % num_batches_in_epoch
-            return 0.1 + 0.9 * (batch_in_epoch / num_batches_in_epoch)
+            warmup_factor = 0.1 + 0.9 * (batch_in_epoch / num_batches_in_epoch)
+            return warmup_factor
         
         return torch.optim.lr_scheduler.LambdaLR(optimizer, f)
     
@@ -590,8 +591,7 @@ class TrainingProgressCallback:
 
     def on_batch_end(self, logs, batch_i, n_batches):
         self._printer.on_batch_end(logs, batch_i, n_batches)
-        percent  = ((batch_i+1) / (n_batches*self.n_epochs))
-        percent += (self.epoch     / self.n_epochs)
+        percent = (self.epoch * n_batches + (batch_i + 1)) / (n_batches * self.n_epochs)
         self.callback_fn(percent, logs)
 
     def on_epoch_end(self, epoch):
