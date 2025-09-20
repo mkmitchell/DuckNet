@@ -369,7 +369,8 @@ class DuckDetector(torch.nn.Module):
         return train_images, test_images, train_json, test_json
     
     def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
-        """Calculate class weights with special boosting for new classes and normalize to median=1.0"""
+        """Calculate class weights using effective number of samples approach"""
+        import statistics
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -377,96 +378,50 @@ class DuckDetector(torch.nn.Module):
             class_counts.update(labels)
         
         print("Calculating class weights for balanced sampling...")
-        new_classes = [cls for cls in self.class_list 
-                    if cls not in original_classes and cls not in known_negative_classes]
         
-        hen_class = 'Hen'
-        non_hen_classes = [cls for cls in self.class_list if cls != hen_class]
-
-        non_hen_counts = {cls: class_counts[cls] for cls in non_hen_classes if cls in class_counts}
-        if not non_hen_counts:
-            return {}, [1.0] * len(jsonfiles_train)
-        
-        regular_classes = [cls for cls in non_hen_classes if cls not in known_negative_classes]
-        regular_counts = [class_counts[cls] for cls in regular_classes if cls in class_counts]
-        
-        if not regular_counts:
-            return {}, [1.0] * len(jsonfiles_train)
-        
-        sorted_counts = sorted(regular_counts)
-        median_idx = len(sorted_counts) // 2
-        if len(sorted_counts) % 2 == 0 and median_idx < len(sorted_counts):
-            median_count = sorted_counts[median_idx] 
-        else:
-            median_count = sorted_counts[median_idx]
-        
-        max_count = max(regular_counts)
-        min_count = min(regular_counts)
-        
+        beta = 0.99 
         class_weights = {}
-        class_weights['background'] = 0.05
-
-        for cls in non_hen_classes:
-            if cls in class_counts:
-                count = class_counts[cls]
-                if cls in known_negative_classes:
-                    class_weights[cls] = 0.5
-                else:
-                    if max_count == min_count:
-                        weight = 1.0 
-                    else:
-                        beta = 0.9999
-                        weight = (1 - beta) / (1 - beta**count)
-                    class_weights[cls] = weight
         
-        if hen_class in class_counts:
-            count = class_counts[hen_class]
-            weight = median_count / count
-            weight = min(1.0, weight) 
-            class_weights[hen_class] = weight
-        
-        for cls in new_classes:
-            if cls in class_counts:
-                count = class_counts[cls]
-                current_weight = class_weights[cls]
-                
-                if count < median_count / 2:
-                    boost_factor = 2.5  
-                elif count < median_count:
-                    boost_factor = 2.0 
-                else:
-                    boost_factor = 1.5
-                    
-                class_weights[cls] = current_weight * boost_factor
-
-        regular_weights = [class_weights[cls] for cls in regular_classes if cls in class_weights]
-        if regular_weights:
-            sorted_weights = sorted(regular_weights)
-            median_weight_idx = len(sorted_weights) // 2
-            if len(sorted_weights) % 2 == 0 and median_weight_idx < len(sorted_weights):
-                median_weight = (sorted_weights[median_weight_idx-1] + sorted_weights[median_weight_idx]) / 2
+        for class_name in self.class_list:
+            count = class_counts.get(class_name, 0)
+            if count > 0:
+                effective_num = (1.0 - beta**count) / (1.0 - beta)
+                class_weights[class_name] = 1.0 / effective_num
             else:
-                median_weight = sorted_weights[median_weight_idx]
-
-            bg_weight = class_weights['background']
-            
-            for cls in class_weights:
-                if cls != 'background':
-                    class_weights[cls] = class_weights[cls] / median_weight
-
-            class_weights['background'] = bg_weight
+                class_weights[class_name] = 1.0
         
+        # Handle negative classes
+        for cls in known_negative_classes:
+            if cls in class_weights:
+                class_weights[cls] = 0.5
+        
+        # Normalize so median weight = 1.0
+        regular_weights = [class_weights[cls] for cls in self.class_list 
+                        if cls not in known_negative_classes and cls in class_weights]
+        
+        if regular_weights:
+            median_weight = statistics.median(regular_weights)
+            for class_name in class_weights:
+                if class_name not in known_negative_classes:
+                    class_weights[class_name] /= median_weight
+        
+        class_weights['background'] = 0.1 
+        
+        # Calculate sample weights for WeightedRandomSampler
         sample_weights = []
         for jf in jsonfiles_train:
             labels = datasets.get_labels_from_jsonfile(jf)
             if len(labels) == 0:
+                # Image with no annotations (background only)
                 sample_weights.append(class_weights['background'])
             else:
+                # Use average weight of all classes in this image
                 label_counts = Counter(labels)
                 total_instances = sum(label_counts.values())
                 weighted_sum = sum(class_weights.get(label, 1.0) * count for label, count in label_counts.items())
                 sample_weights.append(weighted_sum / total_instances)
         
+        # Print weights for debugging
         print(f"  Background: {class_weights['background']:.3f}")
         
         printed_classes = set()
@@ -477,6 +432,7 @@ class DuckDetector(torch.nn.Module):
                 printed_classes.add(cls)
         
         return class_weights, sample_weights
+    
 
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
