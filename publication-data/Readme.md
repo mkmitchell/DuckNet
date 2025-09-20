@@ -42,4 +42,4 @@ This folder contains the complete implementation and dataset for PyTorch object 
 
 ## License
 
-This work is licensed under CC BY-NC (see `LICENSE.pdf` for details).
+The work in this folder is licensed under CC BY-NC (see `LICENSE.pdf` for details).
