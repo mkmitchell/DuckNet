@@ -16,9 +16,10 @@ pt_soft_nms
 time
 sys
 collections
-sklearn.model_selection
-torchvision.tv_tensors
 numpy
+sklearn.model_selection
+statistics
+torchvision.tv_tensors
 PIL.Image
 PIL.ImageOps
 json
