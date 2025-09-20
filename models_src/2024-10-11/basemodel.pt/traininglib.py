@@ -157,7 +157,7 @@ class MetricLogger(object):
 class TrainingTask(torch.nn.Module):
     stop_requested = False
     
-    def __init__(self, basemodule, epochs=10, lr=0.001, callback=None):
+    def __init__(self, basemodule, epochs=10, lr=0.0005, callback=None):
         super().__init__()
         self.basemodule = basemodule
         self.epochs = epochs
