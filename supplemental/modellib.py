@@ -141,7 +141,7 @@ class DuckDetector(torch.nn.Module):
 
     def start_training_detector(self, imagefiles_train, jsonfiles_train,
         imagefiles_test=None, jsonfiles_test=None,
-        classes_of_interest=None, negative_classes=[], lr=0.001,
+        classes_of_interest=None, negative_classes=[], lr=0.0005,
         epochs=10, callback=None, num_workers=0,
         use_weighted_sampling=True, validation_split=0.2): 
 
@@ -395,6 +395,11 @@ class DuckDetector(torch.nn.Module):
             if cls in class_weights:
                 class_weights[cls] = 0.5
         
+        # Cap previously learned classes at 1.0 (they already have pre-trained advantage)
+        for cls in original_classes:
+            if cls in class_weights:
+                class_weights[cls] = min(class_weights[cls], 1.0)
+        
         # Normalize so median weight = 1.0
         regular_weights = [class_weights[cls] for cls in self.class_list 
                         if cls not in known_negative_classes and cls in class_weights]
@@ -405,7 +410,7 @@ class DuckDetector(torch.nn.Module):
                 if class_name not in known_negative_classes:
                     class_weights[class_name] /= median_weight
         
-        class_weights['background'] = 0.1  # Increased from 0.05
+        class_weights['background'] = 0.1
         
         # Calculate sample weights for WeightedRandomSampler
         sample_weights = []
