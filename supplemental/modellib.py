@@ -370,6 +370,7 @@ class DuckDetector(torch.nn.Module):
     
     def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
         """Calculate class weights with separate normalization for original vs new classes"""
+        import statistics
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -393,7 +394,7 @@ class DuckDetector(torch.nn.Module):
         # Handle negative classes
         for cls in known_negative_classes:
             if cls in class_weights:
-                class_weights[cls] = 0.5
+                class_weights[cls] = 0.1 # set equal to background weight
         
         # Separate original and new classes
         original_weights = {cls: class_weights[cls] for cls in original_classes 
@@ -401,7 +402,6 @@ class DuckDetector(torch.nn.Module):
         
         new_classes = [cls for cls in self.class_list 
                     if cls not in original_classes and cls not in known_negative_classes]
-        new_weights = {cls: class_weights[cls] for cls in new_classes if cls in class_weights}
         
         # Normalize original classes: rarest gets 1.0, others scale down proportionally
         if original_weights:
@@ -409,19 +409,10 @@ class DuckDetector(torch.nn.Module):
             for cls in original_weights:
                 class_weights[cls] = original_weights[cls] / max_original_weight  # Range: (0, 1.0]
         
-        # Normalize new classes: range from 1.5 (most common) to 3.5 (rarest)
-        if new_weights:
-            min_new_weight = min(new_weights.values())
-            max_new_weight = max(new_weights.values())
-            
-            if max_new_weight > min_new_weight:  
-                for cls in new_weights:
-                    normalized = (new_weights[cls] - min_new_weight) / (max_new_weight - min_new_weight)
-                    class_weights[cls] = 1.5 + (normalized * 2.0)  # Range: [1.5, 3.5]
-            else:
-                # All new classes have same count
-                for cls in new_weights:
-                    class_weights[cls] = 2.5  # Middle of [1.5, 3.5] range
+        # Give all new classes a consistent 2.0 weight
+        for cls in new_classes:
+            if cls in class_weights:
+                class_weights[cls] = 2.0 
         
         class_weights['background'] = 0.1
         
@@ -444,8 +435,7 @@ class DuckDetector(torch.nn.Module):
         for cls in self.class_list:
             if cls in class_weights and cls not in printed_classes:
                 count = class_counts.get(cls, 0)
-                class_type = "original" if cls in original_classes else "new"
-                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f} ({class_type})")
+                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f}")
                 printed_classes.add(cls)
         
         return class_weights, sample_weights
