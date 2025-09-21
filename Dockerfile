@@ -29,6 +29,8 @@ RUN wget \
 
 # Initialize conda and create the environment
 RUN conda init bash \
+    && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
+    && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r \
     && . ~/.bashrc \
     && conda env create --file environment.yml \
     && conda activate DuckNet
