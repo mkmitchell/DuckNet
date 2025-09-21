@@ -67,10 +67,6 @@ If you use this research implementation, please cite:
 }
 ```
 
-## License
-
-The work in this folder is licensed under CC BY-NC (see `LICENSE.pdf` for details).
-
 ---
 
 **Questions?** Contact the corresponding author: Zack Loken (zack@savannainstitute.org)
