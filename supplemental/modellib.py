@@ -367,10 +367,9 @@ class DuckDetector(torch.nn.Module):
         test_json = [jsonfiles[imagefiles.index(img)] for img in test_images]
         
         return train_images, test_images, train_json, test_json
-    
+        
     def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
-        """Calculate class weights with separate normalization for original vs new classes"""
-        import statistics
+        """Calculate class weights with Hen fixed at 0.3, other originals 0.5-1.0, new classes 1.5-2.0"""
         
         class_counts = Counter()
         for jf in jsonfiles_train:
@@ -394,7 +393,7 @@ class DuckDetector(torch.nn.Module):
         # Handle negative classes
         for cls in known_negative_classes:
             if cls in class_weights:
-                class_weights[cls] = 0.1 # set equal to background weight
+                class_weights[cls] = 0.1
         
         # Separate original and new classes
         original_weights = {cls: class_weights[cls] for cls in original_classes 
@@ -402,17 +401,42 @@ class DuckDetector(torch.nn.Module):
         
         new_classes = [cls for cls in self.class_list 
                     if cls not in original_classes and cls not in known_negative_classes]
-        
-        # Normalize original classes: rarest gets 1.0, others scale down proportionally
+
+        # Calculate weights for original classes: range 0.5-1.0, Hen fixed at 0.3
         if original_weights:
-            max_original_weight = max(original_weights.values())
-            for cls in original_weights:
-                class_weights[cls] = original_weights[cls] / max_original_weight  # Range: (0, 1.0]
-        
-        # Give all new classes a consistent 2.0 weight
-        for cls in new_classes:
-            if cls in class_weights:
-                class_weights[cls] = 2.0 
+            if 'Hen' in original_weights:
+                class_weights['Hen'] = 0.3
+                
+            non_hen_original = {cls: weight for cls, weight in original_weights.items() if cls != 'Hen'}
+            
+            if non_hen_original:
+                min_weight = min(non_hen_original.values()) 
+                max_weight = max(non_hen_original.values())  
+                
+                for cls, weight in non_hen_original.items():
+                    if max_weight > min_weight:
+                        normalized = (weight - min_weight) / (max_weight - min_weight)
+                        class_weights[cls] = 0.5 + (normalized * 0.5)  
+                    else:
+                        class_weights[cls] = 0.75 
+                         
+        # Calculate weights for new classes: range 1.5-2.0
+        if new_classes:
+            new_counts = {cls: class_counts.get(cls, 0) for cls in new_classes}
+            
+            if len(new_counts) > 1:
+                min_count = min(new_counts.values())  
+                max_count = max(new_counts.values())  
+
+                for cls, count in new_counts.items():
+                    if max_count > min_count:
+                        normalized = (count - min_count) / (max_count - min_count)
+                        inverted = 1.0 - normalized 
+                        class_weights[cls] = 1.5 + (inverted * 0.5)
+                    else:
+                        class_weights[cls] = 1.75 
+            else:
+                class_weights[new_classes[0]] = 1.75
         
         class_weights['background'] = 0.1
         
