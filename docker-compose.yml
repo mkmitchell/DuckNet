@@ -1,9 +1,0 @@
-services:
-  ducknet:
-    container_name: ducknet
-    restart: always # because it is routing traffic to our entire app
-    build:
-      context: .
-    ports:
-      - '5050:5050'
-    command: python -u /app/mainwaitress.py
