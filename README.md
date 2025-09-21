@@ -100,7 +100,7 @@ The output csv file contains the following columns: file name, date when image w
 
 **Step 2.** Under the `Files` tab, select *Load Annotations* and select all corresponding json files that contain the correct bounding box locations and species labels.
 
-**Step 3.** Click on the `Training` tab and select *Classes of Interest* (duck species that should be identified) and *Rejected classes* (classes to ignore during training).
+**Step 3.** Click on the `Training` tab and select *Classes of Interest* (duck species that should be identified) and *Rejected classes* (classes to ignore).
 
 ![p8](supplemental/user_guide_pngs/step3_training.png)
 
