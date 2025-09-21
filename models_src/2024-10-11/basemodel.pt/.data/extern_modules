@@ -18,7 +18,6 @@ sys
 collections
 numpy
 sklearn.model_selection
-statistics
 torchvision.tv_tensors
 PIL.Image
 PIL.ImageOps
