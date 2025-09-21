@@ -69,4 +69,4 @@ If you use this research implementation, please cite:
 
 ---
 
-**Questions?** Contact the corresponding author: Zack Loken (zack@savannainstitute.org)
+**Questions?** Contact Zack Loken (zack@savannainstitute.org)
