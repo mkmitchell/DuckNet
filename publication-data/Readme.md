@@ -29,13 +29,13 @@ This folder contains the complete implementation and dataset for PyTorch object 
 - **`model/RetinaNet_ResNet50_FPN_DuckNet.pth`** - Trained model weights
 
 ### License
-- **`LICENSE.pdf`** - CC BY-NC license agreement with Wiley (applies to all contents)
+- **`LICENSE.pdf`** - CC BY-NC license agreement with Wiley (applies to all folder contents)
 
 ## Quick Start
 
 1. Clone the Conda environment:
    ```bash
-   conda env create -f code/environment.yml
+   conda env create -f publication-data/environment.yml
    ```
 
 2. Open and run the Jupyter notebook
