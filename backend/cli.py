@@ -27,7 +27,7 @@ class CLI(base_cli.CLI):
 
 def results_to_csv(results, export_boxes=False):
     header = [
-        'Filename', 'Date', 'Time', 'Flag', 'Species', 'Code', 'Confidence level'
+        'Filename', 'Date', 'Time', 'Class', 'Confidence level'
     ]
     if export_boxes:
         header.append('Box')
@@ -48,17 +48,17 @@ def results_to_csv(results, export_boxes=False):
     
 
         if n==0:
-            csv_item   = [filename, date, time, '', '', '', ''] + ([''] if export_boxes else [])
+            csv_item   = [filename, date, time, '', ''] + ([''] if export_boxes else [])
             csv_data.append( csv_item )
         
         for i in range(len(selectedlabels)):
             label      = selectedlabels[i]
             confidence = result['per_class_scores'][i][label]
-            code       = species_codes.get(label, '')
-            unsure     = 'unsure' if confidence < 0.50 else ''                                                                  #TODO: custom threshold
+            code      = species_codes.get(label, '')
+                                                             #TODO: custom threshold
             
             confidence_str = f'{confidence*100:.1f}'
-            csv_item       = [filename, date, time, unsure, label, code, confidence_str]
+            csv_item       = [filename, date, time, code, confidence_str]
             if export_boxes:
                 box  = ' '.join( [ f'{x:.1f}' for x in result['boxes'][i] ] )
                 csv_item.append(box)
