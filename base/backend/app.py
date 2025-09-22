@@ -174,18 +174,19 @@ class App(flask.Flask):
         return flask.jsonify(result)
     
     def training(self):
-        imagefiles = dict(flask.request.form.lists())['filenames[]']
+        data = flask.request.get_json(force=True)  # Parse JSON instead of form data
+        imagefiles = data['filenames']             # Get filenames from JSON
         imagefiles = [get_cache_path(fname) for fname in imagefiles]
+        
         if not all([os.path.exists(fname) for fname in imagefiles]):
             flask.abort(404)
         
         model = self.settings.models['detection']
-        #indicate that the model is not the same as before
         self.settings.active_models['detection'] = ''
+        
         def on_progress(p):
             backend.pubsub.PubSub.publish({'progress': p, 'description': 'Training...'}, event='training')
         
-        # Pass the correct list of image files to the start_training method
         ok = model.start_training(imagefiles=imagefiles, targetfiles=[], callback=on_progress)
         return 'OK' if ok else 'INTERRUPTED'
     
