@@ -284,9 +284,8 @@ class DuckDetector(torch.nn.Module):
         print(table_str, flush=True)
 
     def _stratified_split(self, imagefiles, jsonfiles, test_size=0.2, random_state=666):
-        """Stratified split that ensures all classes appear in both train and test sets"""
+        """Stratified split that skips classes with fewer than 20 instances"""
         from sklearn.model_selection import train_test_split
-        import numpy as np
 
         image_class_distribution = {}
         for img_file, json_file in zip(imagefiles, jsonfiles):
@@ -298,24 +297,39 @@ class DuckDetector(torch.nn.Module):
             for cls in classes:
                 class_to_images[cls].append(img)
 
+        # Filter out classes with fewer than 20 instances
+        valid_classes = {cls: images for cls, images in class_to_images.items() if len(images) >= 20}
+        skipped_classes = [cls for cls, images in class_to_images.items() if len(images) < 20]
+        
+        if skipped_classes:
+            print(f"Skipping classes with <20 instances: {skipped_classes}")
+
+        # Filter images to only include those with valid classes
+        valid_imagefiles = []
+        valid_jsonfiles = []
+        for img_file, json_file in zip(imagefiles, jsonfiles):
+            img_labels = set(image_class_distribution[img_file])
+            if img_labels & set(valid_classes.keys()):  # Has at least one valid class
+                valid_imagefiles.append(img_file)
+                valid_jsonfiles.append(json_file)
+        
+        if len(valid_imagefiles) == 0:
+            print("No images with valid classes found")
+            return [], [], [], []
+
+        print(f"Using {len(valid_imagefiles)} images with valid classes out of {len(imagefiles)} total")
+
         train_images = set()
         test_images = set()
 
-        # Ensure each class has at least one sample in both train and test
-        for cls, images in class_to_images.items():
-            if len(images) == 1:
-                # Single image: add to both train and test
-                train_images.add(images[0])
-                test_images.add(images[0])
-            else:
-                np.random.seed(random_state + hash(cls) % 10000)
-                shuffled = np.random.permutation(images).tolist()
-                train_images.add(shuffled[0])
-                test_images.add(shuffled[1 % len(shuffled)])
+        for cls, images in valid_classes.items():
+            np.random.seed(random_state + hash(cls) % 10000)
+            shuffled = np.random.permutation(images).tolist()
+            train_images.add(shuffled[0])
+            test_images.add(shuffled[1 % len(shuffled)])
 
-        # Find remaining images to distribute
-        remaining_images = [img for img in imagefiles 
-                        if img not in train_images or img not in test_images]
+        remaining_images = [img for img in valid_imagefiles 
+                        if img not in train_images and img not in test_images]
         
         if remaining_images:
             remaining_class_distribution = {img: image_class_distribution[img] 
@@ -325,8 +339,7 @@ class DuckDetector(torch.nn.Module):
             for labels in remaining_class_distribution.values():
                 class_counts.update(labels)
 
-
-            target_test_size = int(len(imagefiles) * test_size)
+            target_test_size = int(len(valid_imagefiles) * test_size)
             current_test_size = len(test_images)
             remaining_test_size = max(0, target_test_size - current_test_size)
             
@@ -336,12 +349,11 @@ class DuckDetector(torch.nn.Module):
             else:
                 adjusted_test_size = remaining_test_size / len(remaining_images)
                 
-                # Try stratified split
                 try:
-                    top_classes = [cls for cls, _ in class_counts.most_common(3)]
+                    top_classes = [cls for cls, _ in class_counts.most_common(3) if cls in valid_classes]
                     
                     if len(top_classes) == 0:
-                        raise ValueError("No stratification possible - no classes")
+                        raise ValueError("No valid classes for stratification")
                     
                     stratification_features = []
                     for img in remaining_images:
@@ -349,7 +361,7 @@ class DuckDetector(torch.nn.Module):
                         feature = ''.join(['1' if cls in img_labels else '0' for cls in top_classes])
                         stratification_features.append(feature)
                     
-                    unique_features, feature_counts = np.unique(stratification_features, return_counts=True)
+                    _, feature_counts = np.unique(stratification_features, return_counts=True)
                     min_feature_count = np.min(feature_counts)
                     
                     if min_feature_count < 2 or adjusted_test_size <= 0.0 or adjusted_test_size >= 1.0:
@@ -364,7 +376,7 @@ class DuckDetector(torch.nn.Module):
                     
                 except (ValueError, Exception) as e:
                     # Fallback to random split
-                    print(f"Stratified split failed ({str(e)}), using random split for remaining images")
+                    print(f"Stratified split failed ({str(e)}), using random split")
                     
                     if adjusted_test_size <= 0.0:
                         train_remaining = remaining_images
@@ -392,7 +404,7 @@ class DuckDetector(torch.nn.Module):
         train_images = list(train_images - test_images)
         test_images = list(test_images)
 
-        target_test_count = int(len(imagefiles) * test_size)
+        target_test_count = int(len(valid_imagefiles) * test_size)
         if len(test_images) < target_test_count and len(train_images) > 0:
             move_count = min(target_test_count - len(test_images), len(train_images))
             np.random.seed(random_state)
@@ -408,8 +420,8 @@ class DuckDetector(torch.nn.Module):
                 test_images.remove(img)
                 train_images.append(img)
 
-        train_json = [jsonfiles[imagefiles.index(img)] for img in train_images]
-        test_json = [jsonfiles[imagefiles.index(img)] for img in test_images]
+        train_json = [valid_jsonfiles[valid_imagefiles.index(img)] for img in train_images]
+        test_json = [valid_jsonfiles[valid_imagefiles.index(img)] for img in test_images]
         
         return train_images, test_images, train_json, test_json
         
