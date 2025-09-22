@@ -334,12 +334,16 @@ class DuckDetector(torch.nn.Module):
             remaining_test_size = max(0, target_test_size - current_test_size)
             adjusted_test_size = remaining_test_size / len(remaining_images)
             
-            train_remaining, test_remaining = train_test_split(
-                remaining_images,
-                test_size=adjusted_test_size,
-                stratify=stratification_features,
-                random_state=random_state
-            )
+            if adjusted_test_size == 0.0:
+                train_remaining = remaining_images
+                test_remaining = []
+            else:
+                train_remaining, test_remaining = train_test_split(
+                    remaining_images,
+                    test_size=adjusted_test_size,
+                    stratify=stratification_features,
+                    random_state=random_state
+                )
             
             train_images.update(train_remaining)
             test_images.update(test_remaining)
