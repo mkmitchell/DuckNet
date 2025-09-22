@@ -201,18 +201,6 @@ ObjectDetectionTraining = class extends BaseTraining {
         this.refresh_class_selection()
     }
 
-    //override
-    // static upload_training_data(filenames){
-    //     //TODO: show progress
-    //     const files = filenames.map(k => GLOBAL.files[k])
-    //     const targetfiles = files.map(
-    //         f => GLOBAL.App.Download.build_annotation_jsonfile(f.name, f.results)
-    //     )
-
-    //     const promises = files.concat(targetfiles).map(f => upload_file_to_flask(f))
-    //     return Promise.all(promises).catch(this.fail_modal)
-    // }
-
     static async upload_training_data(filenames) {
         const BATCH_SIZE = 20; // Conservative batch size
         const files = filenames.map(k => GLOBAL.files[k])
