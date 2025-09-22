@@ -479,21 +479,11 @@ class DuckDetector(torch.nn.Module):
                          
         # Calculate weights for new classes: range 1.5-2.0
         if new_classes:
-            new_counts = {cls: class_counts.get(cls, 0) for cls in new_classes}
-            
-            if len(new_counts) > 1:
-                min_count = min(new_counts.values())  
-                max_count = max(new_counts.values())  
-
-                for cls, count in new_counts.items():
-                    if max_count > min_count:
-                        normalized = (count - min_count) / (max_count - min_count)
-                        inverted = 1.0 - normalized 
-                        class_weights[cls] = 1.5 + (inverted * 0.5)
-                    else:
-                        class_weights[cls] = 1.75 
-            else:
-                class_weights[new_classes[0]] = 1.75
+            for cls in new_classes:
+                count = max(class_counts.get(cls, 0), 1)  # Avoid log(0)
+                log_weight = np.log(100 / count)  
+                # Scale to range 1.2 - 2.5
+                class_weights[cls] = min(2.5, max(1.2, 1.2 + log_weight * 0.3))
         
         class_weights['background'] = 0.1
         
