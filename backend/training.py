@@ -31,7 +31,7 @@ def start_training(imagefiles, targetfiles, training_options:dict, settings):
                 num_workers=0, 
                 callback=cb,
                 epochs=training_options.get('epochs', 10),
-                lr=training_options.get('learning_rate', 0.001),
+                lr=training_options.get('learning_rate', 0.0005),
             )
         return 'OK' if ok else 'INTERRUPTED'
 
