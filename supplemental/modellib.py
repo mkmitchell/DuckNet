@@ -286,6 +286,7 @@ class DuckDetector(torch.nn.Module):
     def _stratified_split(self, imagefiles, jsonfiles, test_size=0.2, random_state=666):
         """Stratified split that ensures all classes appear in both train and test sets"""
         from sklearn.model_selection import train_test_split
+        import numpy as np
 
         image_class_distribution = {}
         for img_file, json_file in zip(imagefiles, jsonfiles):
@@ -300,8 +301,10 @@ class DuckDetector(torch.nn.Module):
         train_images = set()
         test_images = set()
 
+        # Ensure each class has at least one sample in both train and test
         for cls, images in class_to_images.items():
             if len(images) == 1:
+                # Single image: add to both train and test
                 train_images.add(images[0])
                 test_images.add(images[0])
             else:
@@ -310,6 +313,7 @@ class DuckDetector(torch.nn.Module):
                 train_images.add(shuffled[0])
                 test_images.add(shuffled[1 % len(shuffled)])
 
+        # Find remaining images to distribute
         remaining_images = [img for img in imagefiles 
                         if img not in train_images or img not in test_images]
         
@@ -321,29 +325,66 @@ class DuckDetector(torch.nn.Module):
             for labels in remaining_class_distribution.values():
                 class_counts.update(labels)
 
-            top_classes = [cls for cls, _ in class_counts.most_common(3)]
-            
-            stratification_features = []
-            for img in remaining_images:
-                img_labels = set(remaining_class_distribution[img])
-                feature = ''.join(['1' if cls in img_labels else '0' for cls in top_classes])
-                stratification_features.append(feature)
 
             target_test_size = int(len(imagefiles) * test_size)
             current_test_size = len(test_images)
             remaining_test_size = max(0, target_test_size - current_test_size)
-            adjusted_test_size = remaining_test_size / len(remaining_images)
             
-            if adjusted_test_size == 0.0:
+            if remaining_test_size == 0 or len(remaining_images) == 0:
                 train_remaining = remaining_images
                 test_remaining = []
             else:
-                train_remaining, test_remaining = train_test_split(
-                    remaining_images,
-                    test_size=adjusted_test_size,
-                    stratify=stratification_features,
-                    random_state=random_state
-                )
+                adjusted_test_size = remaining_test_size / len(remaining_images)
+                
+                # Try stratified split
+                try:
+                    top_classes = [cls for cls, _ in class_counts.most_common(3)]
+                    
+                    if len(top_classes) == 0:
+                        raise ValueError("No stratification possible - no classes")
+                    
+                    stratification_features = []
+                    for img in remaining_images:
+                        img_labels = set(remaining_class_distribution[img])
+                        feature = ''.join(['1' if cls in img_labels else '0' for cls in top_classes])
+                        stratification_features.append(feature)
+                    
+                    unique_features, feature_counts = np.unique(stratification_features, return_counts=True)
+                    min_feature_count = np.min(feature_counts)
+                    
+                    if min_feature_count < 2 or adjusted_test_size <= 0.0 or adjusted_test_size >= 1.0:
+                        raise ValueError("Stratification not possible - insufficient samples per class")
+                    
+                    train_remaining, test_remaining = train_test_split(
+                        remaining_images,
+                        test_size=adjusted_test_size,
+                        stratify=stratification_features,
+                        random_state=random_state
+                    )
+                    
+                except (ValueError, Exception) as e:
+                    # Fallback to random split
+                    print(f"Stratified split failed ({str(e)}), using random split for remaining images")
+                    
+                    if adjusted_test_size <= 0.0:
+                        train_remaining = remaining_images
+                        test_remaining = []
+                    elif adjusted_test_size >= 1.0:
+                        train_remaining = []
+                        test_remaining = remaining_images
+                    else:
+                        try:
+                            train_remaining, test_remaining = train_test_split(
+                                remaining_images,
+                                test_size=adjusted_test_size,
+                                random_state=random_state
+                            )
+                        except Exception:
+                            test_count = int(len(remaining_images) * adjusted_test_size)
+                            np.random.seed(random_state)
+                            shuffled = np.random.permutation(remaining_images).tolist()
+                            test_remaining = shuffled[:test_count]
+                            train_remaining = shuffled[test_count:]
             
             train_images.update(train_remaining)
             test_images.update(test_remaining)
@@ -352,8 +393,8 @@ class DuckDetector(torch.nn.Module):
         test_images = list(test_images)
 
         target_test_count = int(len(imagefiles) * test_size)
-        if len(test_images) < target_test_count:
-            move_count = target_test_count - len(test_images)
+        if len(test_images) < target_test_count and len(train_images) > 0:
+            move_count = min(target_test_count - len(test_images), len(train_images))
             np.random.seed(random_state)
             to_move = np.random.choice(train_images, size=move_count, replace=False)
             for img in to_move:
