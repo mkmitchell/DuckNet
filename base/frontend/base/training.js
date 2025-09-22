@@ -16,30 +16,6 @@ BaseTraining = class BaseTraining{
         this.update_model_info()
     }
 
-    // static async on_start_training(){
-    //     var filenames = this.get_selected_files()
-    //     console.log('Training on ', filenames)
-        
-    //     const progress_cb = (m => this.on_training_progress(m))
-    //     try {
-    //         this.show_modal()
-    //         await this.upload_training_data(filenames)
-
-    //         $(GLOBAL.event_source).on('training', progress_cb)
-    //         //FIXME: success/fail should not be determined by this request
-    //         await $.post('/training', JSON.stringify({filenames:filenames, options:this.get_training_options()}))
-    //         if(!$('#training-modal .ui.progress').progress('is complete'))
-    //             this.interrupted_modal()
-            
-    //         GLOBAL.App.Settings.load_settings()
-    //     } catch (e) {
-    //         console.error(e)
-    //         this.fail_modal()
-    //     } finally {
-    //         $(GLOBAL.event_source).off('training', progress_cb)
-    //     }
-    // }
-
     static async on_start_training(){
         console.log('Starting training process');
         var filenames = this.get_selected_files()
@@ -226,15 +202,46 @@ ObjectDetectionTraining = class extends BaseTraining {
     }
 
     //override
-    static upload_training_data(filenames){
-        //TODO: show progress
+    // static upload_training_data(filenames){
+    //     //TODO: show progress
+    //     const files = filenames.map(k => GLOBAL.files[k])
+    //     const targetfiles = files.map(
+    //         f => GLOBAL.App.Download.build_annotation_jsonfile(f.name, f.results)
+    //     )
+
+    //     const promises = files.concat(targetfiles).map(f => upload_file_to_flask(f))
+    //     return Promise.all(promises).catch(this.fail_modal)
+    // }
+
+    static async upload_training_data(filenames) {
+        const BATCH_SIZE = 20; // Conservative batch size
         const files = filenames.map(k => GLOBAL.files[k])
         const targetfiles = files.map(
             f => GLOBAL.App.Download.build_annotation_jsonfile(f.name, f.results)
         )
-
-        const promises = files.concat(targetfiles).map(f => upload_file_to_flask(f))
-        return Promise.all(promises).catch(this.fail_modal)
+        
+        const allFiles = files.concat(targetfiles);
+        const results = [];
+        
+        for (let i = 0; i < allFiles.length; i += BATCH_SIZE) {
+            const batch = allFiles.slice(i, i + BATCH_SIZE);
+            console.log(`Uploading batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(allFiles.length/BATCH_SIZE)}`);
+            
+            try {
+                const batchResults = await Promise.all(batch.map(f => upload_file_to_flask(f)));
+                results.push(...batchResults);
+            } catch (error) {
+                this.fail_modal();
+                throw error;
+            }
+            
+            // Small delay between batches to prevent overwhelming
+            if (i + BATCH_SIZE < allFiles.length) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
+        
+        return results;
     }
 
     //override
