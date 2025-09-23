@@ -23,6 +23,11 @@ DuckNet includes:
 - Support for importing existing LabelMe-format annotation files
 - Tools to save fine-tuned models for future reuse
 
+Sample data:
+
+- **Annotations:** [Google Drive Link - Annotations in LabelMe Format](https://drive.google.com/file/d/1e_K_PF1YnrlLWy5sropFNA78LxBCzWGP/view)
+- **Images:** [Google Drive Link - Corresponding Images](https://drive.google.com/file/d/1u9lmw1TCstvWfDn96KjZqHuZxTO6TQ9X/view)
+
 ---
 
 ## Installation and Setup
@@ -68,7 +73,7 @@ The user-friendly GUI allows you to combine automated species identification wit
 
 ![p2](supplemental/user_guide_pngs/step2_processing.png)
 
-**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged (default 60%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is YES); save settings or cancel.
+**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged (default 50%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is YES); save settings or cancel.
 
 ![p3](supplemental/user_guide_pngs/step3_processing.png)
 
@@ -84,7 +89,7 @@ The user-friendly GUI allows you to combine automated species identification wit
 
 ![p5](supplemental/user_guide_pngs/step5_processing.png)
 
-**Step 6. Add Metadata (optional):** This metadata information will be included in the beginning of the csv output file, but it can be left empty. Included fields: date, site name, region, county, surveyor, camera ID, and comments; save metadata or cancel.
+**Step 6. Add Metadata (optional):** This metadata information will be included in the beginning of the csv output file, but it can be left empty. Included fields: date, site name, region, state, county, surveyor, camera ID, and comments; save metadata or cancel.
 
 ![p6](supplemental/user_guide_pngs/step6_processing.png)
 
