@@ -68,16 +68,16 @@ The user-friendly GUI allows you to combine automated species identification wit
 
 ![p2](supplemental/user_guide_pngs/step2_processing.png)
 
-**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged (default 60%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is NO); save settings or cancel.
+**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged (default 60%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is YES); save settings or cancel.
 
 ![p3](supplemental/user_guide_pngs/step3_processing.png)
 
-**Step 4. Process the images:** Click on `Process All` to process all loaded images. After processing each image, the species identification(s) and their associated confidence level appear in the `Detected Ducks` tab. In the `Flags` tab the following flags are added: white flag – empty image, no ducks detected in the image; black flag – low-confidence identification, confidence level of species identification is below the set threshold (default 50%, change in the `Settings` tab); checkered flag – multiple ducks in an image.
+**Step 4. Process the images:** Click on `Process All` to process all loaded images. After processing each image, the species identification(s) and their associated confidence level appear in the `Detected Ducks` tab. In the `Flags` tab the following flags are added: white flag – empty image, no ducks detected in the image; black flag – low-confidence identification, confidence level of species identification is below the set threshold (default 50%, change in the `Settings` tab).
 
 ![p4](supplemental/user_guide_pngs/step4_processing.png)
 
 **Step 5. Review the detections and identifications:** Clicking on a species identification or filename will open the original image, showing a bounding box around each detected duck and the corresponding species identification. Hovering over the species label will show the confidence level of the identification. Images can be sorted based on the confidence level of their identifications, allowing users to quickly review all images below the chosen confidence threshold. Identifications can be removed by clicking on the red X in the upper right corner of each bounding box. Bounding boxes can be resized by pulling the lower right corner of the box and can be moved around by the grey square in the middle of the bounding box. For each image a menu bar appears on the top left corner with four icons:
-- Click on the first icon (black triangle) to process again the image.
+- Click on the first icon (black triangle) to process the image.
 - Clicking on the second icon (eye) allows you to show/hide the bounding boxes from an image (e.g. when multiple identifications are overlapping), and change the brightness of the image.
 - The third icon (bounding box) allows you to add new bounding boxes with species identification to the image (from a drop-down menu or by typing species class), when ducks were not detected in the image.
 - The fourth icon (question mark) is a summary of short keys: shift + drag to move the image, shift + mouse wheel to zoom and shift + double-click to reset the image.
@@ -98,13 +98,13 @@ The output csv file contains the following columns: file name, date when image w
 
 **Step 1.** Under the `Files` tab, select *Load Input Images* to load selected images from a folder or select *Load Input Folder* to load all images in a folder. A list of all loaded images will appear below.
 
-**Step 2.** Under the `Files` tab, select *Load Annotations* and select all corresponding json files that contain the correct bounding box locations and species labels.
+**Step 2.** Under the `Files` tab, select *Load Annotations* and select all corresponding json files that contain the correct bounding box locations and species labels. Annotation files must be in LabelMe format.
 
 **Step 3.** Click on the `Training` tab and select *Classes of Interest* (duck species that should be identified) and *Rejected classes* (classes to ignore).
 
 ![p8](supplemental/user_guide_pngs/step3_training.png)
 
-**Step 4.** Set the learning rate (default 0.0005) and the number of epochs (default 10) and click on `Start training`. Important: this may take up to several hours or days, depending on the number of training images and your computer performance. After the training finished, save the model. To apply the new model, change the *Active model* under the `Settings` tab.
+**Step 4.** Set the learning rate (default 0.0005) and the number of epochs (default 10) and click on `Start training`. Important: this may take up to several hours or days, depending on the number of training images and your computer performance. After the training finishes, save the model. To apply the new model, change the *Active model* under the `Settings` tab.
 
 ![p9](supplemental/user_guide_pngs/step4_training.png)
 
