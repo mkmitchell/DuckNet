@@ -58,9 +58,9 @@ docker rm ducknet
 
 ### Running DuckNet with Graphical User Interface
 
-The user-friendly graphical interface allows you to combine automated species identification with manual review of low-confidence predictions.
+The user-friendly GUI allows you to combine automated species identification with manual review of low-confidence predictions.
 
-**Step 1. Opening DuckNet:** After running the Docker container, open your web browser and navigate to `http://localhost:5050`. The DuckNet interface will load automatically.
+**Step 1. Opening DuckNet:** After running the Docker container, open your web browser and navigate to `http://localhost:5050`. The DuckNet interface will load automatically. 
 
 ![p1](supplemental/user_guide_pngs/step1_processing.png)
 
@@ -68,7 +68,7 @@ The user-friendly graphical interface allows you to combine automated species id
 
 ![p2](supplemental/user_guide_pngs/step2_processing.png)
 
-**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged as "unsure" (default 70%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is NO); save settings or cancel.
+**Step 3. Settings:** Under the `Settings` tab choose the *Active model* used for processing the images (default is the baseline model pre-trained on North American waterfowl species) and see the species (Known classes) that the model can identify; choose the *Confidence threshold*, below which all predictions will be flagged (default 60%); choose if the coordinates of the bounding boxes should be included in the final csv output file (default is NO); save settings or cancel.
 
 ![p3](supplemental/user_guide_pngs/step3_processing.png)
 
@@ -79,7 +79,7 @@ The user-friendly graphical interface allows you to combine automated species id
 **Step 5. Review the detections and identifications:** Clicking on a species identification or filename will open the original image, showing a bounding box around each detected duck and the corresponding species identification. Hovering over the species label will show the confidence level of the identification. Images can be sorted based on the confidence level of their identifications, allowing users to quickly review all images below the chosen confidence threshold. Identifications can be removed by clicking on the red X in the upper right corner of each bounding box. Bounding boxes can be resized by pulling the lower right corner of the box and can be moved around by the grey square in the middle of the bounding box. For each image a menu bar appears on the top left corner with four icons:
 - Click on the first icon (black triangle) to process again the image.
 - Clicking on the second icon (eye) allows you to show/hide the bounding boxes from an image (e.g. when multiple identifications are overlapping), and change the brightness of the image.
-- The third icon (bounding box) allows you to add new bounding boxes with species identification to the image (from a drop-down menu or by typing species name), when ducks were not detected in the image.
+- The third icon (bounding box) allows you to add new bounding boxes with species identification to the image (from a drop-down menu or by typing species class), when ducks were not detected in the image.
 - The fourth icon (question mark) is a summary of short keys: shift + drag to move the image, shift + mouse wheel to zoom and shift + double-click to reset the image.
 
 ![p5](supplemental/user_guide_pngs/step5_processing.png)
