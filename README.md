@@ -1,6 +1,6 @@
 # 🦆 DuckNet
 
-**DuckNet** is an open-source, deep learning-based tool for detecting, localizing, and classifying waterbird species in drone imagery. It adapts the excellent work of [BatNet](https://github.com/GabiK-bat/BatNet), and is authorized for non-commercial use only. 
+**DuckNet** is an open-source, deep learning-based tool for detecting, localizing, and classifying waterbird species in drone imagery. It adapts the excellent work of [BatNet](https://github.com/GabiK-bat/BatNet), and is available for non-commercial use only. 
 
 DuckNet allows users to process custom UAV image datasets using a baseline model developed by Loken et al. (2025). The baseline model—**RetinaNet** with a **ResNet-50** backbone—is trained to identify:
 
