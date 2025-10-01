@@ -24,7 +24,9 @@ This folder contains the complete implementation and dataset for PyTorch object 
 - **`utils.py`** - Utility functions for training and evaluation
 
 ### Data
-- **`annotations/`** - Annotation files in Darwin JSON 2.0 format (polygon and XYWH bounding boxes)
+**Download Annotations:** [Google Drive Link - DuckNet Annotations](https://drive.google.com/drive/folders/18rAnsIAWMUfLvemi9HsHbIo8YPm339pu?usp=sharing)
+
+- **`annotations/`** - Annotation files in Darwin JSON 2.0 format (polygon and XYWH bounding boxes) - hosted on Google Drive due to number of files
 
 **Download Images:** [Google Drive Link - DuckNet Images](https://drive.google.com/drive/folders/1MQ3BE6evpqfCSM1Fhc0M9UnJYUX_SIuu?usp=sharing)
 
