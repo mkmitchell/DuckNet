@@ -121,8 +121,10 @@ The output csv file contains the following columns: file name, date when image w
 
 Loken, Z. J., Ringelman, K. M., Mini, A., James, D., & Mitchell, M. (2025). *DuckNet: an open-source deep learning tool for waterfowl species identification in UAV imagery.* Remote Sensing in Ecology and Conservation. https://doi.org/10.1002/rse2.70028
 
-- **Corresponding author**: Zack Loken (zack@savannainstitute.org)  
-- **Lead developer**: Mike Mitchell (mmitchell@ducks.org)
+## Development
+
+Development
+DuckNet was designed and built by Zack Loken as part of his M.S. research at Louisiana State University, with support from Mike Mitchell (Ducks Unlimited). Zack led all software development, model training, field data collection, and manuscript preparation. The repository is maintained by Mike Mitchell on behalf of Ducks Unlimited, which funded the project.
 
 ---
 
