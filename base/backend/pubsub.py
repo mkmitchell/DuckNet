@@ -1,7 +1,9 @@
 import queue
 
+
 class PubSub:
     '''Global publish-subscribe class for push messages to the UI'''
+
     subscribers = []
 
     @classmethod
@@ -9,6 +11,14 @@ class PubSub:
         q = queue.Queue(maxsize=5)
         cls.subscribers.append(q)
         return q
+
+    @classmethod
+    def unsubscribe(cls, q):
+        '''Remove a subscriber queue; safe to call more than once.'''
+        try:
+            cls.subscribers.remove(q)
+        except ValueError:
+            pass
 
     @classmethod
     def publish(cls, msg, event='message'):

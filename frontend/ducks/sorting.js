@@ -17,11 +17,9 @@ DuckSorting = class extends BaseSorting {
         $col.addClass(['sorted', direction]);
 
         let   filenames   = Object.keys(GLOBAL.files)
-        const predictions = filenames.map(f => GLOBAL.files[f].results.predictions)
-        const confidences = predictions.map(  P => P.map(  p => Object.values(p).reduce( (r,c) => Math.max(r,c) )  )  )  //ugh
-        //lowest confidence level per filename
-        let   worstconf   = confidences.map( x => x.reduce( (x,carry) => Math.min(x, carry), 100 ) )
-        
+        //unprocessed files have no results and sort after every processed file
+        const worstconf   = filenames.map(f => this.lowest_confidence(GLOBAL.files[f].results))
+
         //sort by the lowest confidence
         const order       = arange(worstconf.length).sort( (a,b) => (worstconf[b] - worstconf[a]) )
         filenames         = order.map(i => filenames[i]);
@@ -29,6 +27,14 @@ DuckSorting = class extends BaseSorting {
             filenames = filenames.reverse()
 
         this.set_new_file_order(filenames)
+    }
+
+    //lowest confidence among a file's predictions; 100 when there are none, -1 when unprocessed
+    static lowest_confidence(results){
+        if(!results)
+            return -1
+        const confidences = results.predictions.map( p => Math.max(...Object.values(p)) )
+        return confidences.reduce( (carry, x) => Math.min(x, carry), 100 )
     }
 
     //called when user clicks on "Detected Ducks" column head
@@ -39,9 +45,9 @@ DuckSorting = class extends BaseSorting {
         $col.addClass(['sorted', direction]);
 
         let   filenames   = Object.keys(GLOBAL.files)
-        const labels      = filenames.map(f => GLOBAL.files[f].results.labels)
-        //sort by number of labels in each file
-        const order       = arange(labels.length).sort( (a,b) => (labels[b].length - labels[a].length) )
+        //unprocessed files count as -1 so they sort after files with zero detections
+        const counts      = filenames.map(f => GLOBAL.files[f].results?.labels.length ?? -1)
+        const order       = arange(counts.length).sort( (a,b) => (counts[b] - counts[a]) )
         filenames         = order.map(i => filenames[i]);
         if(direction=='ascending')
             filenames = filenames.reverse()
@@ -49,6 +55,3 @@ DuckSorting = class extends BaseSorting {
         this.set_new_file_order(filenames)
     }
 }
-
-
-

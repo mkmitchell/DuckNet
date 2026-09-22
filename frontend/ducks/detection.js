@@ -27,7 +27,7 @@ DuckDetection = class extends BaseDetection {
     }
 
     static format_results_for_table(duckresults){
-        const hiconf_threshold = GLOBAL.settings.confidence_threshold/100 ?? 0.50
+        const hiconf_threshold = (GLOBAL.settings.confidence_threshold ?? 50)/100
         const n     = duckresults.labels.length;
         console.log('duckresults', duckresults)
         console.log('duckresult labels', duckresults.labels)

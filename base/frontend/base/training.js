@@ -20,46 +20,67 @@ BaseTraining = class BaseTraining{
         console.log('Starting training process');
         var filenames = this.get_selected_files()
         console.log('Training files ', filenames)
-        
+
+        //resolved by on_training_progress() when the server sends the final status event
+        const finished    = new Promise(resolve => { this._resolve_training = resolve })
         const progress_cb = (m => this.on_training_progress(m))
         try {
             this.show_modal()
-            
-            // Store the result of upload_training_data and log it
-            const uploadResult = await this.upload_training_data(filenames)
-            console.log('Upload result:', uploadResult)
-    
+            await this.upload_training_data(filenames)
+
             $(GLOBAL.event_source).on('training', progress_cb)
-            // Log the training options
-            const trainingOptions = this.get_training_options();
-            console.log('Training options:', trainingOptions);
-    
-            // Log the data being sent to the backend
-            const requestData = { filenames: filenames, options: trainingOptions };
+            const requestData = { filenames: filenames, options: this.get_training_options() };
             console.log('Request data:', requestData);
-    
-            //FIXME: success/fail should not be determined by this request
+
+            //the request only starts the job; the outcome arrives as a 'training' event
             const response = await $.post('/training', JSON.stringify(requestData))
             console.log('Training response:', response)
-    
-            if(!$('#training-modal .ui.progress').progress('is complete')) {
-                console.log('Training not complete, showing interrupted modal')
-                this.interrupted_modal()
-            } else {
-                console.log('Training complete')
-            }
-            
-            GLOBAL.App.Settings.load_settings()
+            if(response != 'STARTED')
+                throw new Error(`Unexpected response: ${response}`)
+
+            //the poll settles the wait even if the event stream dropped
+            const status = await Promise.race([finished, this.poll_training_status()])
+            console.log('Training finished with status', status)
         } catch (e) {
             console.error('Training failed:', e)
-            this.fail_modal()
+            const detail = e?.responseJSON?.description ?? e?.message ?? ''
+            this.fail_modal(detail)
         } finally {
             $(GLOBAL.event_source).off('training', progress_cb)
+            this._resolve_training = undefined
+            GLOBAL.App.Settings.load_settings()
         }
     }
 
     static get_training_options(){
         return undefined;
+    }
+
+    //fallback for a dropped event stream: ask the server until the job is over,
+    //then apply its final status exactly as the event would have
+    static async poll_training_status(){
+        //10 s is far below any epoch length; it only bounds how late a lost
+        //final event is noticed
+        const interval_ms = 10000
+        while(true){
+            await new Promise(resolve => setTimeout(resolve, interval_ms))
+            if(!this._resolve_training)
+                return undefined
+            let status
+            try {
+                status = await $.get('/training_status')
+            } catch (e) {
+                continue
+            }
+            if(status.running)
+                continue
+            if(status.last){
+                this.on_training_progress({originalEvent: {data: JSON.stringify(status.last)}})
+                return status.last.status
+            }
+            this.fail_modal('the server reports no training job')
+            return 'failed'
+        }
     }
 
     static on_cancel_training(){
@@ -110,8 +131,9 @@ BaseTraining = class BaseTraining{
         $('#training-modal').modal('hide');
     }
 
-    static fail_modal(){
-        $('#training-modal .progress').progress('set error', 'Training failed');
+    static fail_modal(detail=''){
+        const text = detail? `Training failed: ${detail}` : 'Training failed';
+        $('#training-modal .progress').progress('set error', text);
         $('#training-modal #cancel-training-button').removeClass('disabled')
         $('#training-modal').modal({closable:true})
     }
@@ -131,12 +153,19 @@ BaseTraining = class BaseTraining{
     static on_training_progress(message){
         var data = JSON.parse(message.originalEvent.data)
         console.log('Progress update:', data)
-        $('#training-modal .progress').progress({percent:data.progress*100, autoSuccess:false})
+        if(data.progress != undefined)
+            $('#training-modal .progress').progress({percent:data.progress*100, autoSuccess:false})
         $('#training-modal .label').text(data.description)
-        if(data.progress >= 1){
+
+        //a status field marks the final event of a training run
+        if(data.status == 'done')
             this.success_modal()
-            //this.update_model_info()
-        }
+        else if(data.status == 'interrupted')
+            this.interrupted_modal()
+        else if(data.status == 'failed')
+            this.fail_modal(data.description)
+        if(data.status && this._resolve_training)
+            this._resolve_training(data.status)
     }
 
     static on_save_model(){

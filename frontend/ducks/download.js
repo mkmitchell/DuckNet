@@ -100,10 +100,11 @@ DuckDownload = class extends ObjectDetectionDownload{
         for(const i in selectedlabels){
             const label      = selectedlabels[i];
             const confidence = (results.predictions[i][label] ?? 1.0).toFixed(2);
-            const code       = GLOBAL.species_codes[label] ?? '';
-            
+            //model labels are already species codes; species_codes.txt maps scientific names
+            const code       = GLOBAL.species_codes[label] ?? label;
+
             // Match header: Filename, Date, Time, Class, Confidence level, (Box)
-            let csv_item     = [filename, date, time, label, confidence]  // 5 items
+            let csv_item     = [filename, date, time, code, confidence]  // 5 items
             if(export_boxes){
                 const box  = results.boxes[i].map( x => x.toFixed(1) ).join(' ');
                 csv_item.push(box)  // 6 items when boxes enabled

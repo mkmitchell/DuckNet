@@ -1,33 +1,59 @@
-import json, os, glob, copy
-from . import app
+import copy
+import glob
+import json
+import os
 
 import torch
 
-class Settings:
-    FILENAME = 'settings.json'   #FIXME: hardcoded
+from . import app
 
+
+def settings_file_path() -> str:
+    '''Location of settings.json.
+
+    CONFIG_PATH when set (the Dockerfile sets it), else next to the main
+    module.
+    '''
+    return os.environ.get('CONFIG_PATH') or os.path.join(
+        app.path_to_main_module(), 'settings.json'
+    )
+
+
+def first_or_none(items):
+    return items[0] if len(items) else None
+
+
+class Settings:
     def __init__(self):
-        self.models        = dict()  #python objects
-        self.active_models = dict()  #modelnames
+        self.models = dict()  # python objects
+        self.active_models = dict()  # modelnames
         self.confidence_threshold = 50.0
-        self.set_settings( self.load_settings_from_file(), save=False )
+        self.set_settings(self.load_settings_from_file(), save=False)
+
+    @property
+    def filename(self) -> str:
+        return settings_file_path()
 
     @classmethod
     def get_defaults(cls):
         available_models = cls.get_available_models()
-        first_or_none    = lambda x: x[0] if len(x) else None
-        return dict( active_models = dict([
-            (modeltype, first_or_none(models)) for modeltype, models in available_models.items()
-        ] ) )
+        return dict(
+            active_models=dict(
+                [
+                    (modeltype, first_or_none(models))
+                    for modeltype, models in available_models.items()
+                ]
+            )
+        )
 
     def load_settings_from_file(self):
         s = self.get_defaults()
-        if os.path.exists(self.FILENAME):
-            s.update(json.load(open(self.FILENAME)))
-            #self.set_settings(s)
+        if os.path.exists(self.filename):
+            with open(self.filename) as f:
+                s.update(json.load(f))
         else:
-            print(f'[WARNING] Settings file {self.FILENAME} not found.')
-            #self.set_settings(s, save=False)
+            print(f'[WARNING] Settings file {self.filename} not found.')
+            # self.set_settings(s, save=False)
         return s
 
     def set_settings(self, s, save=True):
@@ -36,75 +62,103 @@ class Settings:
             if self.active_models.get(modeltype, None) != modelname:
                 self.models[modeltype] = self.load_model(modeltype, modelname)
         self.confidence_threshold = s['confidence_threshold']
-        self.__dict__.update( copy.deepcopy(s) )
+        self.__dict__.update(copy.deepcopy(s))
 
         if save:
             previous_s = self.load_settings_from_file()
             for modeltype, modelname in s['active_models'].items():
-                if modelname == '':  #unsaved
-                    s['active_models'][modeltype] = previous_s['active_models'].get(modeltype)
-            json.dump( s, open('settings.json','w'), indent=2) 
+                if modelname == '':  # unsaved
+                    s['active_models'][modeltype] = previous_s[
+                        'active_models'
+                    ].get(modeltype)
+            with open(self.filename, 'w') as f:
+                json.dump(s, f, indent=2)
 
     def get_settings_as_dict(self):
-        #s = self.load_settings_from_file()
+        # s = self.load_settings_from_file()
         s = self.get_defaults()
-        s = dict([ (k,getattr(self,k,v)) for k,v in s.items() ])
+        s = dict([(k, getattr(self, k, v)) for k, v in s.items()])
         return {
-            'settings'         : s,
-            'available_models' : self.get_available_models(with_properties=True)
+            'settings': s,
+            'available_models': self.get_available_models(
+                with_properties=True
+            ),
         }
 
     @classmethod
     def get_available_models(cls, with_properties=False):
-        modelsdir  = app.get_models_path()
-        contents   = glob.glob(os.path.join(modelsdir, '*'))
-        modeltypes = [os.path.basename(x) for x in contents if os.path.isdir(x)]
-        models     = dict()
+        modelsdir = app.get_models_path()
+        contents = glob.glob(os.path.join(modelsdir, '*'))
+        modeltypes = [
+            os.path.basename(x) for x in contents if os.path.isdir(x)
+        ]
+        models = dict()
         for modeltype in modeltypes:
-            modelfiles = glob.glob(os.path.join(modelsdir, modeltype, '*.pt.zip'))
-            modelnames = [os.path.basename(m)[:-len('.pt.zip')] for m in modelfiles]
+            modelfiles = glob.glob(
+                os.path.join(modelsdir, modeltype, '*.pt.zip')
+            )
+            modelnames = [
+                os.path.basename(m)[: -len('.pt.zip')] for m in modelfiles
+            ]
             modelprops = [cls.get_model_properties(m) for m in modelfiles]
 
-            modelfiles = glob.glob(os.path.join(modelsdir, modeltype, '*.pkl'))       #TODO: remove pkl files
-            modelnames += [os.path.basename(m)[:-len('.pkl')] for m in modelfiles]
+            modelfiles = glob.glob(
+                os.path.join(modelsdir, modeltype, '*.pkl')
+            )  # TODO: remove pkl files
+            modelnames += [
+                os.path.basename(m)[: -len('.pkl')] for m in modelfiles
+            ]
             modelprops += [cls.get_model_properties(m) for m in modelfiles]
             if with_properties:
-                models[modeltype] = [{'name':n, 'properties':p} for n,p in zip(modelnames, modelprops)]
+                models[modeltype] = [
+                    {'name': n, 'properties': p}
+                    for n, p in zip(modelnames, modelprops)
+                ]
             else:
                 models[modeltype] = modelnames
         return models
 
     @classmethod
     def load_model(cls, modeltype, modelname):
-        import pickle
+
         print(f'Loading model {modeltype}/{modelname}')
         models_dir = app.get_models_path()
-        path  = os.path.join(models_dir, modeltype, f'{modelname}.pt.zip')
+        path = os.path.join(models_dir, modeltype, f'{modelname}.pt.zip')
         if not os.path.exists(path):
-            path  = os.path.join(models_dir, modeltype, f'{modelname}.pkl')
+            path = os.path.join(models_dir, modeltype, f'{modelname}.pkl')
             if not os.path.exists(path):
                 print(f'[ERROR] model file "{path}" does not exist.')
                 return
         return cls.load_modelfile(path)
-        
-    @staticmethod
-    def load_modelfile(file_path:str) -> "torch.nn.Module":
-        if file_path.endswith('.pt.zip'):
-            return torch.package.PackageImporter(file_path).load_pickle('model', 'model.pkl', map_location='cpu')
-        elif file_path.endswith('.pkl'):
-            import pickle
-            return pickle.load(open(file_path, 'rb'))
 
     @staticmethod
-    def get_model_properties(modelfile:str) -> dict:
+    def load_modelfile(file_path: str) -> "torch.nn.Module":
+        if file_path.endswith('.pt.zip'):
+            return torch.package.PackageImporter(file_path).load_pickle(
+                'model', 'model.pkl', map_location='cpu'
+            )
+        elif file_path.endswith('.pkl'):
+            import pickle
+
+            with open(file_path, 'rb') as f:
+                return pickle.load(f)
+
+    @staticmethod
+    def get_model_properties(modelfile: str) -> dict:
         if modelfile.endswith('.pt.zip'):
             try:
                 import torch
-                classes = torch.package.PackageImporter(modelfile).load_text('model', 'class_list.txt').split('\n')
-                classes = [c for c in classes if c.lower() not in ['', 'other']]
+
+                classes = (
+                    torch.package.PackageImporter(modelfile)
+                    .load_text('model', 'class_list.txt')
+                    .split('\n')
+                )
+                classes = [
+                    c for c in classes if c.lower() not in ['', 'other']
+                ]
                 return {'known_classes': classes}
             except RuntimeError:
                 return None
         else:
             return None
-
