@@ -10,3 +10,8 @@ supplemental/PackageExporter.ipynb
 /models/detection
 /static
 publication-data/model/RetinaNet_ResNet50_FPN_DuckNet.pth
+
+# Claude Code local setup (not shared)
+.claude/
+CLAUDE.md
+.mcp.json
