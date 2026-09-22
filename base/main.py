@@ -5,14 +5,13 @@ if __name__ == '__main__':
     ok = CLI.run()
 
     if not ok:
-        #start UI
+        # start UI
         App().run()
-
 
 
 # directory layout
 #
-#-RootUI/
+# -RootUI/
 #   -main.py
 #   -build.py
 #   -backend/

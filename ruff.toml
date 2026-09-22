@@ -1,0 +1,27 @@
+# Strict PEP 8: pycodestyle errors and warnings at the PEP 8 line length, pyflakes,
+# import ordering and PEP 8 naming. Run "ruff format" then "ruff check" (see CLAUDE.md).
+line-length = 79
+target-version = "py311"
+
+extend-exclude = [
+    "publication-data",   # frozen research code published with the paper
+    "base/frontend",
+    "static",
+    "cache",
+    "models",
+    "*.ipynb",
+]
+
+[lint]
+select = ["E", "W", "F", "I", "N"]
+
+[lint.isort]
+known-first-party = ["backend", "base", "modellib", "traininglib", "datasets"]
+
+[lint.per-file-ignores]
+# The packaged model library is loaded by torch.package, which resolves the
+# sibling modules at import time; these names are used, not unused.
+"models_src/2024-10-11/basemodel.pt/modellib.py" = ["F401"]
+
+[format]
+quote-style = "preserve"
