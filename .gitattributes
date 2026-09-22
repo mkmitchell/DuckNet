@@ -1,3 +1,0 @@
-publication-data/**/*.JPG filter=lfs diff=lfs merge=lfs -text
-publication-data/models/*.pth filter=lfs diff=lfs merge=lfs -text
-publication-data/model/*.pth filter=lfs diff=lfs merge=lfs -text
