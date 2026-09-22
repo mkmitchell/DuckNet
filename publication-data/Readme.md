@@ -2,12 +2,12 @@
 
 This folder contains the complete implementation and dataset for PyTorch object detection using RetinaNet with ResNet-50 backbone, as described in Loken et al. (2025).
 
-**Citation:** Loken, Z. J., Ringelman, K. M., Mini, A., James, D., & Mitchell, M. (2025). *DuckNet: an open-source deep learning tool for waterfowl species identification in UAV imagery.* Remote Sensing in Ecology and Conservation. https://doi.org/10.1002/rse2.70028
+Citation: Loken, Z. J., Ringelman, K. M., Mini, A., James, D., & Mitchell, M. (2025). *DuckNet: an open-source deep learning tool for waterfowl species identification in UAV imagery.* Remote Sensing in Ecology and Conservation. https://doi.org/10.1002/rse2.70028
 
 ## Directory Structure
 
 ### Code
-- **`RetinaNet_ResNet50_PyTorch_CustomDataset.ipynb`** - Complete Jupyter notebook for PyTorch object detection on custom datasets, including:
+- `RetinaNet_ResNet50_PyTorch_CustomDataset.ipynb` - Complete Jupyter notebook for PyTorch object detection on custom datasets, including:
   - Image and annotation data preprocessing
   - Hyperparameter tuning with Bayesian Optimization
   - Gradient accumulation-enabled fine-tuning of RetinaNet (COCO pre-trained) and ResNet-50 (ImageNet pre-trained)
@@ -16,29 +16,29 @@ This folder contains the complete implementation and dataset for PyTorch object 
   - Training/validation metrics plotting
   - Confusion matrix generation
 
-- **`coco_eval.py`** - COCO-style dataset evaluation tools
-- **`coco_utils.py`** - COCO-style dataset utilities
-- **`engine_gradientAccumulation.py`** - Gradient accumulation-enabled training and evaluation engines
-- **`environment.yml`** - Conda environment configuration for reproducing the analysis
-- **`transforms.py`** - PyTorch transformation functions for object detection
-- **`utils.py`** - Utility functions for training and evaluation
+- `coco_eval.py` - COCO-style dataset evaluation tools
+- `coco_utils.py` - COCO-style dataset utilities
+- `engine_gradientAccumulation.py` - Gradient accumulation-enabled training and evaluation engines
+- `environment.yml` - Conda environment configuration for reproducing the analysis
+- `transforms.py` - PyTorch transformation functions for object detection
+- `utils.py` - Utility functions for training and evaluation
 
 ### Data
-**Download Annotations:** [Google Drive Link - DuckNet Annotations](https://drive.google.com/drive/folders/18rAnsIAWMUfLvemi9HsHbIo8YPm339pu?usp=sharing)
+Download Annotations: [Google Drive Link - DuckNet Annotations](https://drive.google.com/drive/folders/18rAnsIAWMUfLvemi9HsHbIo8YPm339pu?usp=sharing)
 
 -  Annotation files in Darwin JSON 2.0 format (polygon and XYWH bounding boxes) - hosted on Google Drive due to number of files
 
-**Download Images:** [Google Drive Link - DuckNet Images](https://drive.google.com/drive/folders/1MQ3BE6evpqfCSM1Fhc0M9UnJYUX_SIuu?usp=sharing)
+Download Images: [Google Drive Link - DuckNet Images](https://drive.google.com/drive/folders/1MQ3BE6evpqfCSM1Fhc0M9UnJYUX_SIuu?usp=sharing)
 
 -  UAV image dataset (2,142 images) - hosted on Google Drive due to file size
 
 ### Model
-**Download Model Weights:** [Google Drive Link - DuckNet Model Weights](https://drive.google.com/file/d/1GSg8q944VyuujwB1n1AXVQMyy-i0NSML/view?usp=sharing)
+Download Model Weights: [Google Drive Link - DuckNet Model Weights](https://drive.google.com/file/d/1GSg8q944VyuujwB1n1AXVQMyy-i0NSML/view?usp=sharing)
 
-- **`RetinaNet_ResNet50_FPN_DuckNet.pth`** - Trained model weights
+- `RetinaNet_ResNet50_FPN_DuckNet.pth` - Trained model weights
 
 ### License
-- **`LICENSE.pdf`** - CC BY-NC license agreement with Wiley (applies to all folder contents--including images, annotations, model weights, and code)
+- `LICENSE.pdf` - CC BY-NC license agreement with Wiley (applies to all folder contents, including images, annotations, model weights, and code)
 
 ## Quick Start
 
@@ -71,4 +71,4 @@ If you use this research implementation, please cite:
 
 ---
 
-**Questions?** Contact Zack Loken (zack@savannainstitute.org)
+Questions? Contact Zack Loken (zack@savannainstitute.org)
