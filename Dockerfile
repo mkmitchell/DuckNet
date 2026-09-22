@@ -1,46 +1,49 @@
-# Use NVIDIA CUDA 12.4.1 with cuDNN base image for GPU support
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+# syntax=docker/dockerfile:1
+# The torch cu130 wheels bundle the CUDA runtime, so a plain Python image is
+# enough; GPU access comes from the NVIDIA container toolkit (--gpus all)
+# and a host driver that supports CUDA 13.
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/root/miniconda3/envs/DuckNet/bin/:/root/miniconda3/bin:$PATH"
-ENV INSTANCE_PATH="/app"
-ENV ROOT_PATH="/app"
-ENV CONFIG_PATH="/app/settings.json"
-ENV PYTHONPATH="/app"
+FROM python:3.14-slim AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /tmp/requirements.txt
+
+# soft_nms is a C++ torch extension with no published wheel; build it once
+# here against the pinned torch and copy only the wheel into the runtime.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip wheel --no-build-isolation --no-deps -w /wheels \
+    git+https://github.com/MrParosk/soft_nms.git@446ee47f34a269bdb72a2bb63617c64c74633a73
+
+
+FROM python:3.14-slim
+
+ENV INSTANCE_PATH="/app" \
+    ROOT_PATH="/app" \
+    CONFIG_PATH="/app/settings.json" \
+    PYTHONPATH="/app" \
+    PYTHONUNBUFFERED="1"
 
 WORKDIR /app
 
-# Install everything in one layer and clean up thoroughly
-RUN apt-get update && \
-    apt-get install -y wget zip unzip git build-essential && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    mkdir /root/.conda && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b && \
-    rm -f Miniconda3-latest-Linux-x86_64.sh && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /tmp/*
+COPY requirements.txt /app/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /app/requirements.txt
 
-# Copy environment file first for better caching
-COPY environment.yml /app/
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
 
-# Create conda environment and clean up
-RUN conda init bash && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    . ~/.bashrc && \
-    conda env create --file environment.yml && \
-    conda clean -afy
-
-RUN /root/miniconda3/envs/DuckNet/bin/pip install --use-pep517 --no-build-isolation git+https://github.com/MrParosk/soft_nms.git && \
-    /root/miniconda3/envs/DuckNet/bin/pip cache purge
-
-# Copy app code last
 COPY . /app
 
-RUN mkdir -p /app/models/detection && \
-    cd /app/models_src/2024-10-11/ && \
-    zip -r /app/models/detection/basemodel.pt.zip *
+# touch first: zip cannot encode pre-1980 mtimes, which checkouts may carry.
+RUN mkdir -p /app/models/detection \
+    && cd /app/models_src/2024-10-11 \
+    && find basemodel.pt -type f -exec touch {} + \
+    && python -m zipfile -c /app/models/detection/basemodel.pt.zip basemodel.pt
 
 EXPOSE 5050
-CMD ["python", "-u", "mainwaitress.py"]
+CMD ["python", "mainwaitress.py"]

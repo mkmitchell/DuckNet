@@ -34,15 +34,33 @@ Sample data:
 
 ### Prerequisites
 - **Docker Desktop** installed on your system ([Download here](https://www.docker.com/products/docker-desktop/))
-- NVIDIA GPU for cuda support (optional, for faster processing)
+- NVIDIA GPU for cuda support (optional, for faster processing). The image ships CUDA 13 libraries with PyTorch, so the host needs an NVIDIA driver that supports CUDA 13 (driver 580 or newer) and the NVIDIA Container Toolkit.
 
 ### Quick Start
 ```bash
 # Pull and run the DuckNet container
-docker run -d -p 5050:5050 --name ducknet zjloken/ducknet:latest
+docker run -d -p 127.0.0.1:5050:5050 --name ducknet zjloken/ducknet:latest
 
 # For GPU support (recommended):
-docker run -d -p 5050:5050 --gpus all --name ducknet zjloken/ducknet:latest
+docker run -d -p 127.0.0.1:5050:5050 --gpus all --name ducknet zjloken/ducknet:latest
+```
+
+The `127.0.0.1:` prefix keeps the app reachable only from your own machine. DuckNet has no login, and its routes can upload files, clear the working folder and stop the server, so do not publish the port on a network interface others can reach.
+
+### Building from source
+```bash
+git clone https://github.com/mkmitchell/DuckNet.git
+cd DuckNet
+docker build -t ducknet .
+docker run -d -p 127.0.0.1:5050:5050 --name ducknet ducknet
+```
+
+The image is a plain `python:3.14-slim` with the dependencies from `requirements.txt` (PyTorch cu130 wheels). To run outside Docker you need Python 3.14, the same requirements, and a C++ compiler for the `soft_nms` extension listed in the Dockerfile.
+
+### Command line use
+The container can also process a folder of images without the browser interface and write the same CSV the GUI produces:
+```bash
+docker run --rm -v /path/to/images:/data ducknet python mainwaitress.py --input "/data/*.jpg" --output /data/detected_ducks.csv --saveboxes
 ```
 
 ### Stop/Start Container
@@ -95,7 +113,7 @@ The user-friendly GUI allows you to combine automated species identification wit
 
 **Step 7. Download results:** Under the `Download` tab you can download the results as a csv file (*Download CSV*) or you can download the bounding boxes as json files to be used as training images (*Download Annotations*). Clicking on the download button will prompt a window to choose the location where the files should be saved. The default filename for the csv file is *detected_ducks.csv*, annotations are saved as the image names with json extension.
 
-The output csv file contains the following columns: file name, date when image was taken, time when image was taken, class (four letter species code), confidence level (on a scale from 0-1), and, optionally, bounding box coordinates (XYXY format).
+The output csv file is semicolon separated and contains the following columns: file name, date when image was taken, time when image was taken, class (four letter species code), confidence level (on a scale from 0-1), and, optionally, bounding box coordinates (XYXY format, space separated). The command line interface writes the same format.
 
 ![p7](supplemental/user_guide_pngs/step7_processing.png)
 
@@ -119,7 +137,6 @@ The output csv file contains the following columns: file name, date when image w
 
 ## Development
 
-Development
 DuckNet was designed and built by Zack Loken as part of his M.S. research at Louisiana State University, with support from Mike Mitchell (Ducks Unlimited). Zack led all software development, model training, field data collection, and manuscript preparation. The repository is maintained by Mike Mitchell on behalf of Ducks Unlimited, which funded the project.
 
 ## Citation
