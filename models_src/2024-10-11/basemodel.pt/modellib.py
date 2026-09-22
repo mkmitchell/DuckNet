@@ -1,30 +1,49 @@
-import torch, torchvision
-import torchvision.transforms.v2 as T
-from torch._jit_internal import is_scripting
-import warnings, importlib
-warnings.simplefilter('ignore') #pytorch is too noisy
-from torchvision.models.detection import RetinaNet
-from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
-from torchvision.models.detection.retinanet import RetinaNetClassificationHead, RetinaNetRegressionHead
-from torchvision.models.detection.anchor_utils import AnchorGenerator
-import torchvision.models.detection._utils as det_utils
-from torchvision.ops import sigmoid_focal_loss
-import torchvision.ops.boxes as box_ops
-from typing import Callable, Dict, List, Optional, NamedTuple
-from pt_soft_nms import batched_soft_nms
-import time, sys
+"""DuckNet detector: RetinaNet with a ResNet-50 backbone, soft-NMS
+post-processing, fine-tuning with class remapping, and torch.package export.
+"""
+
+import importlib
+import sys
+import time
+import warnings
 from collections import Counter, defaultdict
+from typing import Callable, Dict, List, NamedTuple, Optional
+
 import numpy as np
+import torch
+import torchvision
+import torchvision.models.detection._utils as det_utils
+import torchvision.ops.boxes as box_ops
+from pt_soft_nms import batched_soft_nms
+from torch._jit_internal import is_scripting
+from torchvision.models.detection import RetinaNet
+from torchvision.models.detection.anchor_utils import AnchorGenerator
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
+from torchvision.models.detection.retinanet import (
+    RetinaNetClassificationHead,
+    RetinaNetRegressionHead,
+)
+from torchvision.ops import sigmoid_focal_loss
+from torchvision.transforms import v2
+
+warnings.simplefilter('ignore')  # pytorch is too noisy
 
 if "__torch_package__" in dir():
-    import torch_package_importer # type: ignore
+    import torch_package_importer  # type: ignore
+
     import_func = torch_package_importer.import_module
 else:
-    import importlib
-    import_func = lambda m: importlib.reload(importlib.import_module(m))
+
+    def import_func(m):
+        return importlib.reload(importlib.import_module(m))
+
 
 MODULES = ['datasets', 'traininglib']
+# Minimum annotated images a class needs to take part in the validation split;
+# carried over unchanged from the original implementation (no derivation kept).
+MIN_IMAGES_PER_CLASS_FOR_SPLIT = 20
 [datasets, traininglib] = [import_func(m) for m in MODULES]
+
 
 def _sum(x: List[torch.Tensor]) -> torch.Tensor:
     res = x[0]
@@ -32,132 +51,225 @@ def _sum(x: List[torch.Tensor]) -> torch.Tensor:
         res = res + i
     return res
 
+
 class Prediction(NamedTuple):
-    boxes:           torch.Tensor
-    box_scores:      torch.Tensor
-    probabilities:   torch.Tensor
-    labels:          List[str]
-        
+    boxes: torch.Tensor
+    box_scores: torch.Tensor
+    probabilities: torch.Tensor
+    labels: List[str]
+
     def numpy(self):
-        return Prediction(*[x.cpu().numpy() if torch.is_tensor(x) else x for x in self]) # type: ignore
+        return Prediction(
+            *[x.cpu().numpy() if torch.is_tensor(x) else x for x in self]
+        )  # type: ignore
+
 
 class DuckDetector(torch.nn.Module):
     def __init__(self, classes_of_interest):
         super().__init__()
-        self.class_list         = classes_of_interest
-        self.detector           = Detector()
-        self._device_indicator  = torch.nn.Parameter(torch.zeros(0))  # dummy parameter
+        self.class_list = classes_of_interest
+        self.detector = Detector()
+        self._device_indicator = torch.nn.Parameter(
+            torch.zeros(0)
+        )  # dummy parameter
 
     def forward(self, x):
         results = []
         device = self._device_indicator.device
         x = x.to(device)
-        
+
         self.eval()
         with torch.no_grad():
             detector_outputs = self.detector(x)
             if is_scripting():
-                detector_outputs = detector_outputs[1] 
-        
+                detector_outputs = detector_outputs[1]
+
         for o in detector_outputs:
             boxes = o['boxes']
             scores = o['scores']
             labels_idx = o['labels']
-            
-            probabilities = torch.zeros((len(boxes), len(self.class_list)), device=device)
+
+            probabilities = torch.zeros(
+                (len(boxes), len(self.class_list)), device=device
+            )
             string_labels = []
-            
+
             for i, (label_idx, score) in enumerate(zip(labels_idx, scores)):
-                class_idx = label_idx.item() - 1  # Convert 1-indexed to 0-indexed
+                class_idx = (
+                    label_idx.item() - 1
+                )  # Convert 1-indexed to 0-indexed
                 probabilities[i, class_idx] = score.item()
                 string_labels.append(self.class_list[class_idx])
-            
+
             boxes_tensor: torch.Tensor = torch.as_tensor(boxes, device=device)
-            scores_tensor: torch.Tensor = torch.as_tensor(scores, device=device)
-            probabilities_tensor: torch.Tensor = torch.as_tensor(probabilities, device=device)
-            
-            results.append(Prediction(
-                boxes=boxes_tensor,
-                box_scores=scores_tensor,
-                probabilities=probabilities_tensor,
-                labels=string_labels,
-            ))
-        
+            scores_tensor: torch.Tensor = torch.as_tensor(
+                scores, device=device
+            )
+            probabilities_tensor: torch.Tensor = torch.as_tensor(
+                probabilities, device=device
+            )
+
+            results.append(
+                Prediction(
+                    boxes=boxes_tensor,
+                    box_scores=scores_tensor,
+                    probabilities=probabilities_tensor,
+                    labels=string_labels,
+                )
+            )
+
         return results
-    
+
     @staticmethod
     def load_image(filename, to_tensor=False):
         image = datasets.load_image(filename)  # exif-aware
         if to_tensor:
-            image = T.ToImage()(image)
+            image = v2.ToImage()(image)
         return image
 
     def process_image(self, image):
         if isinstance(image, str):
             image = self.load_image(image)
         width, height = image.size
-        
-        x = T.ToTensor()(image).unsqueeze(0)
-        x = T.Resize(size=(810,), max_size=1440, interpolation=T.InterpolationMode.BILINEAR)(x)
+
+        x = v2.ToTensor()(image).unsqueeze(0)
+        x = v2.Resize(
+            size=(810,),
+            max_size=1440,
+            interpolation=v2.InterpolationMode.BILINEAR,
+        )(x)
         resized_height, resized_width = x.shape[-2:]
-        x = T.Normalize(mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225])(x)
-        
+        x = v2.Normalize(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )(x)
+
         self.eval()
         with torch.no_grad():
-            output = self.forward(x)[0]  
-        
+            output = self.forward(x)[0]
+
         boxes = output.boxes.clone()
         boxes[:, 0] *= width / resized_width
         boxes[:, 1] *= height / resized_height
         boxes[:, 2] *= width / resized_width
         boxes[:, 3] *= height / resized_height
-        
+
         boxes_np = boxes.cpu().numpy() if torch.is_tensor(boxes) else boxes
-        scores_np = output.box_scores.cpu().numpy() if torch.is_tensor(output.box_scores) else output.box_scores
-        probabilities = output.probabilities.cpu().numpy() if torch.is_tensor(output.probabilities) else output.probabilities
-        labels = output.labels  
-        
+        scores_np = (
+            output.box_scores.cpu().numpy()
+            if torch.is_tensor(output.box_scores)
+            else output.box_scores
+        )
+        probabilities = (
+            output.probabilities.cpu().numpy()
+            if torch.is_tensor(output.probabilities)
+            else output.probabilities
+        )
+        labels = output.labels
+
         return {
             'boxes': boxes_np,
             'box_scores': scores_np,
             'cls_scores': probabilities,
-            'per_class_scores': [dict(zip(self.class_list, p)) for p in probabilities.tolist()],
+            'per_class_scores': [
+                dict(zip(self.class_list, p)) for p in probabilities.tolist()
+            ],
             'labels': labels,
         }
-    
-    def update_class_list(self, jsonfiles_train: list[str]) -> None:
-        existing_classes = self.class_list.copy()
-        unique_classes = set()
-        for jf in jsonfiles_train:
-            labels = datasets.get_labels_from_jsonfile(jf)
-            unique_classes.update(labels)
-        new_classes = [cls for cls in unique_classes if cls not in existing_classes]
-        
-        if new_classes:
-            updated_classes = existing_classes + new_classes
-            print(f"Found new classes: {new_classes}")
-            self.class_list = updated_classes
 
-    def start_training_detector(self, imagefiles_train, jsonfiles_train,
-        imagefiles_test=None, jsonfiles_test=None,
-        classes_of_interest=None, negative_classes=[], lr=0.0005,
-        epochs=10, callback=None, num_workers=0,
-        use_weighted_sampling=True, validation_split=0.2): 
+    @staticmethod
+    def resolve_training_classes(
+        class_list, annotated_labels, classes_of_interest, negative_classes
+    ):
+        """Decide which labels train as positives and which as background.
 
-        if imagefiles_test is None and jsonfiles_test is None and validation_split > 0:
-            print(f"No validation data provided. Auto-splitting training data ({int((1-validation_split)*100)}% train, {int(validation_split*100)}% validation)")
-            
-            imagefiles_train, imagefiles_test, jsonfiles_train, jsonfiles_test = self._stratified_split(
-                imagefiles_train, jsonfiles_train, test_size=validation_split, random_state=666
-            )
-            
-            print(f"Split: {len(imagefiles_train)} training files, {len(imagefiles_test)} validation files")
-
-        original_class_list = self.class_list.copy()
-
+        Returns (new_classes, negative_classes), both sorted. With
+        classes_of_interest given, known classes left out of it join
+        negative_classes and labels in it that are not in class_list are
+        new. Without it, every annotated label outside class_list and
+        negative_classes is new. Raises ValueError for an annotated label
+        that ends up in neither group, before anything is mutated.
+        """
+        negative_classes = set(negative_classes or [])
         if classes_of_interest is not None:
-            self.class_list = classes_of_interest.copy()
+            negative_classes |= {
+                cls for cls in class_list if cls not in classes_of_interest
+            }
+            new_classes = {
+                cls for cls in classes_of_interest if cls not in class_list
+            }
+        else:
+            new_classes = {
+                cls
+                for cls in annotated_labels
+                if cls not in class_list and cls not in negative_classes
+            }
+
+        known = set(class_list) | new_classes | negative_classes
+        unknown = sorted(cls for cls in annotated_labels if cls not in known)
+        if unknown:
+            raise ValueError(
+                f"Labels {unknown} are neither classes of interest "
+                "nor rejected classes"
+            )
+        return sorted(new_classes), sorted(negative_classes)
+
+    def start_training_detector(
+        self,
+        imagefiles_train,
+        jsonfiles_train,
+        imagefiles_test=None,
+        jsonfiles_test=None,
+        classes_of_interest=None,
+        negative_classes=None,
+        lr=0.0005,
+        epochs=10,
+        callback=None,
+        num_workers=0,
+        use_weighted_sampling=True,
+        validation_split=0.2,
+    ):
+        """Fine-tune the detector on LabelMe-annotated images.
+
+        classes_of_interest: labels to train as positives. Known classes left
+        out of it are trained as background (their weights are kept); labels
+        in it that the model does not know yet are appended and the head is
+        re-initialised. None keeps the current class list and appends every
+        unseen label. negative_classes: labels whose boxes become background.
+        Returns True when training ran to completion, False when interrupted.
+        """
+        if (
+            imagefiles_test is None
+            and jsonfiles_test is None
+            and validation_split > 0
+        ):
+            train_pct = int((1 - validation_split) * 100)
+            valid_pct = int(validation_split * 100)
+            print(
+                "No validation data provided. Auto-splitting training data "
+                f"({train_pct}% train, {valid_pct}% validation)"
+            )
+
+            (
+                imagefiles_train,
+                imagefiles_test,
+                jsonfiles_train,
+                jsonfiles_test,
+            ) = self._stratified_split(
+                imagefiles_train,
+                jsonfiles_train,
+                test_size=validation_split,
+                random_state=666,
+            )
+
+            print(
+                f"Split: {len(imagefiles_train)} training files, "
+                f"{len(imagefiles_test)} validation files"
+            )
+
+        if len(imagefiles_train) == 0:
+            raise ValueError(
+                "No training images left after the train/validation split"
+            )
 
         all_json_files = jsonfiles_train + (jsonfiles_test or [])
         unique_classes = set()
@@ -165,91 +277,98 @@ class DuckDetector(torch.nn.Module):
             labels = datasets.get_labels_from_jsonfile(jf)
             unique_classes.update(labels)
 
-        new_classes = [cls for cls in unique_classes 
-                      if cls not in self.class_list and cls not in negative_classes]
-        new_classes.sort()
+        # Every check that can fail runs before the model is touched, so a
+        # rejected start leaves the loaded model exactly as it was.
+        new_classes, negative_classes = self.resolve_training_classes(
+            self.class_list,
+            unique_classes,
+            classes_of_interest,
+            negative_classes,
+        )
 
+        original_class_list = self.class_list.copy()
         if new_classes:
             print(f"Found new classes: {new_classes}")
-            self.class_list.extend(new_classes)
-
-        if original_class_list != self.class_list:
-            print(f"Class list changed. Reinitializing detector with {len(self.class_list)} classes.")
-            num_classes = int(len(self.class_list) + 1)  # +1 for background class
-            
-            old_detector = self.detector
-            self.detector = Detector(num_classes=num_classes, pretrained_detector=old_detector)
+            self.class_list = self.class_list + new_classes
+            print(
+                "Class list changed. Reinitializing detector with "
+                f"{len(self.class_list)} classes."
+            )
+            num_classes = len(self.class_list) + 1  # +1 for background
+            self.detector = Detector(
+                num_classes=num_classes, pretrained_detector=self.detector
+            )
 
         object.__setattr__(self.detector, 'class_list', self.class_list.copy())
         print(f"Final class_list for training: {self.class_list}")
 
-        filtered_train_images = []
-        filtered_train_jsons = []
-        
-        for img_file, json_file in zip(imagefiles_train, jsonfiles_train):
-            labels = datasets.get_labels_from_jsonfile(json_file)
-            if all(label in self.class_list for label in labels):
-                filtered_train_images.append(img_file)
-                filtered_train_jsons.append(json_file)
+        if negative_classes:
+            print(
+                f"Rejected classes trained as background: {negative_classes}"
+            )
 
-        if len(filtered_train_images) < len(imagefiles_train):
-            print(f"Filtered training set: {len(imagefiles_train)} → {len(filtered_train_images)} files")
-            imagefiles_train = filtered_train_images
-            jsonfiles_train = filtered_train_jsons
-
-        if imagefiles_test is not None and jsonfiles_test is not None:
-            filtered_image_files = []
-            filtered_json_files = []
-            
-            for img_file, json_file in zip(imagefiles_test, jsonfiles_test):
-                labels = datasets.get_labels_from_jsonfile(json_file)
-                if all(label in self.class_list for label in labels):
-                    filtered_image_files.append(img_file)
-                    filtered_json_files.append(json_file)
-            
-            if len(filtered_image_files) < len(imagefiles_test):
-                print(f"Filtered validation set: {len(imagefiles_test)} → {len(filtered_image_files)} files")
-                imagefiles_test = filtered_image_files
-                jsonfiles_test = filtered_json_files
-
-        self._print_class_distribution(imagefiles_train, jsonfiles_train, imagefiles_test, jsonfiles_test)
+        self._print_class_distribution(
+            imagefiles_train,
+            jsonfiles_train,
+            imagefiles_test or [],
+            jsonfiles_test or [],
+        )
 
         ds_type = datasets.DetectionDataset
-        ds_train = ds_type(imagefiles_train, jsonfiles_train,
-                        augment=True,
-                        negative_classes=negative_classes,
-                        class_list=self.class_list)
+        ds_train = ds_type(
+            imagefiles_train,
+            jsonfiles_train,
+            augment=True,
+            negative_classes=negative_classes,
+            class_list=self.class_list,
+        )
 
         if use_weighted_sampling:
             _, sample_weights = self._calculate_class_weights(
                 jsonfiles_train, negative_classes, original_class_list
             )
-            
+
             sampler = torch.utils.data.WeightedRandomSampler(
                 weights=sample_weights,
                 num_samples=len(sample_weights),
-                replacement=True
+                replacement=True,
             )
 
             dl_train = datasets.create_dataloader(
-                ds_train, batch_size=2, sampler=sampler, num_workers=num_workers
+                ds_train,
+                batch_size=2,
+                sampler=sampler,
+                num_workers=num_workers,
             )
         else:
-            dl_train = datasets.create_dataloader(ds_train, batch_size=2, shuffle=True, num_workers=num_workers)
+            dl_train = datasets.create_dataloader(
+                ds_train, batch_size=2, shuffle=True, num_workers=num_workers
+            )
 
         dl_test = None
         if imagefiles_test is not None:
-            ds_test = ds_type(imagefiles_test, jsonfiles_test,
-                            augment=False,
-                            negative_classes=negative_classes,
-                            class_list=self.class_list)
-            dl_test = datasets.create_dataloader(ds_test, batch_size=1, shuffle=False, num_workers=num_workers)
+            ds_test = ds_type(
+                imagefiles_test,
+                jsonfiles_test,
+                augment=False,
+                negative_classes=negative_classes,
+                class_list=self.class_list,
+            )
+            dl_test = datasets.create_dataloader(
+                ds_test, batch_size=1, shuffle=False, num_workers=num_workers
+            )
 
-        task = traininglib.DetectionTask(self.detector, callback=callback, lr=lr)
+        task = traininglib.DetectionTask(
+            self.detector, callback=callback, lr=lr
+        )
         ret = task.fit(dl_train, dl_test, epochs=epochs)
-        return (not task.stop_requested and not ret)
-    
-    def _print_class_distribution(self, train_images, train_jsons, test_images, test_jsons):
+        if isinstance(ret, Exception):
+            raise ret
+        return not task.stop_requested and not ret
+
+    def _print_class_distribution(
+        self, train_images, train_jsons, test_images, test_jsons
+    ):
         """Print class distribution after filtering"""
         image_class_distribution = {}
 
@@ -260,81 +379,124 @@ class DuckDetector(torch.nn.Module):
         for img_file, json_file in zip(test_images, test_jsons):
             labels = datasets.get_labels_from_jsonfile(json_file)
             image_class_distribution[img_file] = labels
-        
+
         train_class_counts = Counter()
         test_class_counts = Counter()
-        
+
         for img in train_images:
             train_class_counts.update(image_class_distribution[img])
         for img in test_images:
             test_class_counts.update(image_class_distribution[img])
-        
+
         table_str = "\nPost-filtering class distribution:\n"
-        table_str += f"{'Class':<10} {'Train':<8} {'Test':<8} {'Total':<8} {'Train %':<8}\n"
+        table_str += (
+            f"{'Class':<10} {'Train':<8} {'Test':<8} {'Total':<8} "
+            f"{'Train %':<8}\n"
+        )
         table_str += "-" * 50 + "\n"
-        
-        all_classes = sorted(set(train_class_counts.keys()) | set(test_class_counts.keys()))
+
+        all_classes = sorted(
+            set(train_class_counts.keys()) | set(test_class_counts.keys())
+        )
         for cls in all_classes:
             train_count = train_class_counts[cls]
             test_count = test_class_counts[cls]
             total = train_count + test_count
             train_pct = train_count / total * 100 if total > 0 else 0
-            table_str += f"{cls:<10} {train_count:<8} {test_count:<8} {total:<8} {train_pct:.1f}%\n"
+            table_str += (
+                f"{cls:<10} {train_count:<8} {test_count:<8} {total:<8} "
+                f"{train_pct:.1f}%\n"
+            )
 
         print(table_str, flush=True)
 
-    def _stratified_split(self, imagefiles, jsonfiles, test_size=0.2, random_state=666):
-        """Stratified split that skips classes with fewer than 20 instances"""
+    def _stratified_split(
+        self, imagefiles, jsonfiles, test_size=0.2, random_state=666
+    ):
+        """Stratified split that skips classes with fewer than 20 images.
+
+        Deterministic for a given random_state: per-class seeds derive from
+        the class name's bytes rather than hash(), which Python randomizes per
+        process, and every set is sorted before it feeds a random draw.
+        Raises ValueError when no class has enough images.
+        """
         from sklearn.model_selection import train_test_split
+
+        min_images = MIN_IMAGES_PER_CLASS_FOR_SPLIT
 
         image_class_distribution = {}
         for img_file, json_file in zip(imagefiles, jsonfiles):
             labels = datasets.get_labels_from_jsonfile(json_file)
-            image_class_distribution[img_file] = labels if labels else ['background']
+            image_class_distribution[img_file] = (
+                labels if labels else ['background']
+            )
 
         class_to_images = defaultdict(list)
         for img, classes in image_class_distribution.items():
             for cls in classes:
                 class_to_images[cls].append(img)
 
-        # Filter out classes with fewer than 20 instances
-        valid_classes = {cls: images for cls, images in class_to_images.items() if len(images) >= 20}
-        skipped_classes = [cls for cls, images in class_to_images.items() if len(images) < 20]
-        
+        valid_classes = {
+            cls: images
+            for cls, images in class_to_images.items()
+            if len(images) >= min_images
+        }
+        skipped_classes = sorted(
+            cls
+            for cls, images in class_to_images.items()
+            if len(images) < min_images
+        )
+
         if skipped_classes:
-            print(f"Skipping classes with <20 instances: {skipped_classes}")
+            print(
+                f"Skipping classes with fewer than {min_images} images: "
+                f"{skipped_classes}"
+            )
 
         # Filter images to only include those with valid classes
         valid_imagefiles = []
         valid_jsonfiles = []
         for img_file, json_file in zip(imagefiles, jsonfiles):
             img_labels = set(image_class_distribution[img_file])
-            if img_labels & set(valid_classes.keys()):  # Has at least one valid class
+            if img_labels & set(
+                valid_classes.keys()
+            ):  # Has at least one valid class
                 valid_imagefiles.append(img_file)
                 valid_jsonfiles.append(json_file)
-        
-        if len(valid_imagefiles) == 0:
-            print("No images with valid classes found")
-            return [], [], [], []
 
-        print(f"Using {len(valid_imagefiles)} images with valid classes out of {len(imagefiles)} total")
+        if len(valid_imagefiles) == 0:
+            raise ValueError(
+                f"Every class has fewer than {min_images} annotated images; "
+                "the train/validation split needs at least that many for one "
+                f"class. Classes seen: {sorted(class_to_images)}"
+            )
+
+        print(
+            f"Using {len(valid_imagefiles)} images with valid classes "
+            f"out of {len(imagefiles)} total"
+        )
 
         train_images = set()
         test_images = set()
 
-        for cls, images in valid_classes.items():
-            np.random.seed(random_state + hash(cls) % 10000)
-            shuffled = np.random.permutation(images).tolist()
+        for cls, images in sorted(valid_classes.items()):
+            class_seed = int.from_bytes(cls.encode('utf8'), 'big') % 10000
+            rng = np.random.RandomState(random_state + class_seed)
+            shuffled = rng.permutation(images).tolist()
             train_images.add(shuffled[0])
             test_images.add(shuffled[1 % len(shuffled)])
 
-        remaining_images = [img for img in valid_imagefiles 
-                        if img not in train_images and img not in test_images]
-        
+        remaining_images = [
+            img
+            for img in valid_imagefiles
+            if img not in train_images and img not in test_images
+        ]
+
         if remaining_images:
-            remaining_class_distribution = {img: image_class_distribution[img] 
-                                        for img in remaining_images}
-            
+            remaining_class_distribution = {
+                img: image_class_distribution[img] for img in remaining_images
+            }
+
             class_counts = Counter()
             for labels in remaining_class_distribution.values():
                 class_counts.update(labels)
@@ -342,42 +504,62 @@ class DuckDetector(torch.nn.Module):
             target_test_size = int(len(valid_imagefiles) * test_size)
             current_test_size = len(test_images)
             remaining_test_size = max(0, target_test_size - current_test_size)
-            
+
             if remaining_test_size == 0 or len(remaining_images) == 0:
                 train_remaining = remaining_images
                 test_remaining = []
             else:
-                adjusted_test_size = remaining_test_size / len(remaining_images)
-                
+                adjusted_test_size = remaining_test_size / len(
+                    remaining_images
+                )
+
                 try:
-                    top_classes = [cls for cls, _ in class_counts.most_common(3) if cls in valid_classes]
-                    
+                    top_classes = [
+                        cls
+                        for cls, _ in class_counts.most_common(3)
+                        if cls in valid_classes
+                    ]
+
                     if len(top_classes) == 0:
                         raise ValueError("No valid classes for stratification")
-                    
+
                     stratification_features = []
                     for img in remaining_images:
                         img_labels = set(remaining_class_distribution[img])
-                        feature = ''.join(['1' if cls in img_labels else '0' for cls in top_classes])
+                        feature = ''.join(
+                            [
+                                '1' if cls in img_labels else '0'
+                                for cls in top_classes
+                            ]
+                        )
                         stratification_features.append(feature)
-                    
-                    _, feature_counts = np.unique(stratification_features, return_counts=True)
+
+                    _, feature_counts = np.unique(
+                        stratification_features, return_counts=True
+                    )
                     min_feature_count = np.min(feature_counts)
-                    
-                    if min_feature_count < 2 or adjusted_test_size <= 0.0 or adjusted_test_size >= 1.0:
-                        raise ValueError("Stratification not possible - insufficient samples per class")
-                    
+
+                    if (
+                        min_feature_count < 2
+                        or adjusted_test_size <= 0.0
+                        or adjusted_test_size >= 1.0
+                    ):
+                        raise ValueError(
+                            "Stratification not possible: "
+                            "insufficient samples per class"
+                        )
+
                     train_remaining, test_remaining = train_test_split(
                         remaining_images,
                         test_size=adjusted_test_size,
                         stratify=stratification_features,
-                        random_state=random_state
+                        random_state=random_state,
                     )
-                    
-                except (ValueError, Exception) as e:
+
+                except Exception as e:
                     # Fallback to random split
-                    print(f"Stratified split failed ({str(e)}), using random split")
-                    
+                    print(f"Stratified split failed ({e}), using random split")
+
                     if adjusted_test_size <= 0.0:
                         train_remaining = remaining_images
                         test_remaining = []
@@ -389,55 +571,76 @@ class DuckDetector(torch.nn.Module):
                             train_remaining, test_remaining = train_test_split(
                                 remaining_images,
                                 test_size=adjusted_test_size,
-                                random_state=random_state
+                                random_state=random_state,
                             )
                         except Exception:
-                            test_count = int(len(remaining_images) * adjusted_test_size)
-                            np.random.seed(random_state)
-                            shuffled = np.random.permutation(remaining_images).tolist()
+                            test_count = int(
+                                len(remaining_images) * adjusted_test_size
+                            )
+                            rng = np.random.RandomState(random_state)
+                            shuffled = rng.permutation(
+                                remaining_images
+                            ).tolist()
                             test_remaining = shuffled[:test_count]
                             train_remaining = shuffled[test_count:]
-            
+
             train_images.update(train_remaining)
             test_images.update(test_remaining)
 
-        train_images = list(train_images - test_images)
-        test_images = list(test_images)
+        train_images = sorted(train_images - test_images)
+        test_images = sorted(test_images)
 
         target_test_count = int(len(valid_imagefiles) * test_size)
+        rng = np.random.RandomState(random_state)
         if len(test_images) < target_test_count and len(train_images) > 0:
-            move_count = min(target_test_count - len(test_images), len(train_images))
-            np.random.seed(random_state)
-            to_move = np.random.choice(train_images, size=move_count, replace=False)
+            move_count = min(
+                target_test_count - len(test_images), len(train_images)
+            )
+            to_move = rng.choice(train_images, size=move_count, replace=False)
             for img in to_move:
                 train_images.remove(img)
                 test_images.append(img)
         elif len(test_images) > target_test_count:
             move_count = len(test_images) - target_test_count
-            np.random.seed(random_state)
-            to_move = np.random.choice(test_images, size=move_count, replace=False)
+            to_move = rng.choice(test_images, size=move_count, replace=False)
             for img in to_move:
                 test_images.remove(img)
                 train_images.append(img)
 
-        train_json = [valid_jsonfiles[valid_imagefiles.index(img)] for img in train_images]
-        test_json = [valid_jsonfiles[valid_imagefiles.index(img)] for img in test_images]
-        
+        train_json = [
+            valid_jsonfiles[valid_imagefiles.index(img)]
+            for img in train_images
+        ]
+        test_json = [
+            valid_jsonfiles[valid_imagefiles.index(img)] for img in test_images
+        ]
+
         return train_images, test_images, train_json, test_json
-        
-    def _calculate_class_weights(self, jsonfiles_train: list[str], known_negative_classes: list[str], original_classes: list[str]):
-        """Calculate class weights with Hen fixed at 0.3, other originals 0.5-1.0, new classes 1.5-2.0"""
-        
+
+    def _calculate_class_weights(
+        self,
+        jsonfiles_train: list[str],
+        known_negative_classes: list[str],
+        original_classes: list[str],
+    ):
+        """Sampling weights per class and per training image.
+
+        Hen is fixed at 0.3, other original classes are scaled into 0.5 to
+        1.0, new classes into 1.2 to 2.5 by log inverse frequency, and
+        background images get 0.1. The ranges are carried over unchanged
+        from the original implementation; no derivation was recorded.
+        """
+
         class_counts = Counter()
         for jf in jsonfiles_train:
             labels = datasets.get_labels_from_jsonfile(jf)
             class_counts.update(labels)
-        
+
         print("Calculating class weights for balanced sampling...")
-        
-        beta = 0.99 
+
+        beta = 0.99
         class_weights = {}
-        
+
         # Calculate effective number weights for all classes
         for class_name in self.class_list:
             count = class_counts.get(class_name, 0)
@@ -446,47 +649,60 @@ class DuckDetector(torch.nn.Module):
                 class_weights[class_name] = 1.0 / effective_num
             else:
                 class_weights[class_name] = 1.0
-        
+
         # Handle negative classes
         for cls in known_negative_classes:
             if cls in class_weights:
                 class_weights[cls] = 0.1
-        
-        # Separate original and new classes
-        original_weights = {cls: class_weights[cls] for cls in original_classes 
-                        if cls in class_weights and cls not in known_negative_classes}
-        
-        new_classes = [cls for cls in self.class_list 
-                    if cls not in original_classes and cls not in known_negative_classes]
 
-        # Calculate weights for original classes: range 0.5-1.0, Hen fixed at 0.3
+        # Separate original and new classes
+        original_weights = {
+            cls: class_weights[cls]
+            for cls in original_classes
+            if cls in class_weights and cls not in known_negative_classes
+        }
+
+        new_classes = [
+            cls
+            for cls in self.class_list
+            if cls not in original_classes
+            and cls not in known_negative_classes
+        ]
+
+        # Original classes: range 0.5 to 1.0, Hen fixed at 0.3
         if original_weights:
             if 'Hen' in original_weights:
                 class_weights['Hen'] = 0.3
-                
-            non_hen_original = {cls: weight for cls, weight in original_weights.items() if cls != 'Hen'}
-            
+
+            non_hen_original = {
+                cls: weight
+                for cls, weight in original_weights.items()
+                if cls != 'Hen'
+            }
+
             if non_hen_original:
-                min_weight = min(non_hen_original.values()) 
-                max_weight = max(non_hen_original.values())  
-                
+                min_weight = min(non_hen_original.values())
+                max_weight = max(non_hen_original.values())
+
                 for cls, weight in non_hen_original.items():
                     if max_weight > min_weight:
-                        normalized = (weight - min_weight) / (max_weight - min_weight)
-                        class_weights[cls] = 0.5 + (normalized * 0.5)  
+                        normalized = (weight - min_weight) / (
+                            max_weight - min_weight
+                        )
+                        class_weights[cls] = 0.5 + (normalized * 0.5)
                     else:
-                        class_weights[cls] = 0.75 
-                         
-        # Calculate weights for new classes: range 1.5-2.0
+                        class_weights[cls] = 0.75
+
+        # New classes: log inverse frequency scaled into 1.2 to 2.5
         if new_classes:
             for cls in new_classes:
                 count = max(class_counts.get(cls, 0), 1)  # Avoid log(0)
-                log_weight = np.log(100 / count)  
+                log_weight = np.log(100 / count)
                 # Scale to range 1.2 - 2.5
                 class_weights[cls] = min(2.5, max(1.2, 1.2 + log_weight * 0.3))
-        
+
         class_weights['background'] = 0.1
-        
+
         # Calculate sample weights for WeightedRandomSampler
         sample_weights = []
         for jf in jsonfiles_train:
@@ -496,65 +712,94 @@ class DuckDetector(torch.nn.Module):
             else:
                 label_counts = Counter(labels)
                 total_instances = sum(label_counts.values())
-                weighted_sum = sum(class_weights.get(label, 1.0) * count for label, count in label_counts.items())
+                weighted_sum = sum(
+                    class_weights.get(label, 1.0) * count
+                    for label, count in label_counts.items()
+                )
                 sample_weights.append(weighted_sum / total_instances)
-        
+
         # Print weights
         print(f"  Background: {class_weights['background']:.3f}")
-        
+
         printed_classes = set()
         for cls in self.class_list:
             if cls in class_weights and cls not in printed_classes:
                 count = class_counts.get(cls, 0)
-                print(f"  {cls}: class count={count}, class weight={class_weights[cls]:.3f}")
+                print(
+                    f"  {cls}: class count={count}, "
+                    f"class weight={class_weights[cls]:.3f}"
+                )
                 printed_classes.add(cls)
-        
+
         return class_weights, sample_weights
-    
+
     def stop_training(self):
         traininglib.TrainingTask.request_stop()
-    
+
     def save(self, destination):
         if isinstance(destination, str):
             destination = time.strftime(destination)
             if not destination.endswith('.pt.zip'):
                 destination += '.pt.zip'
-        
+
         try:
-            import torch_package_importer as imp # type: ignore
-            importer = (imp, torch.package.sys_importer) # type: ignore
+            import torch_package_importer as imp  # type: ignore
+
+            importer = (imp, torch.package.sys_importer)  # type: ignore
         except ImportError:
-            importer = (torch.package.sys_importer,) # type: ignore
-        
-        with torch.package.PackageExporter(destination, importer) as pe: # type: ignore
+            importer = (torch.package.sys_importer,)  # type: ignore
+
+        with torch.package.PackageExporter(destination, importer) as pe:  # type: ignore
             current_module = __name__.split('.')[-1]
             interns = [current_module] + MODULES
-            
-            pe.extern([
-                'torchvision.**',
-                'torchvision.ops.**',
-                'torchvision.models.**',
-                'pt_soft_nms',
-                'pt_soft_nms.**',
-            ])
+
+            pe.extern(
+                [
+                    'torchvision.**',
+                    'torchvision.ops.**',
+                    'torchvision.models.**',
+                    'pt_soft_nms',
+                    'pt_soft_nms.**',
+                ]
+            )
             pe.intern(interns)
             pe.extern('**', exclude=interns)
-            
+
             for inmod in interns:
                 if inmod in sys.modules:
-                    pe.save_source_file(inmod, sys.modules[inmod].__file__, dependencies=True)
+                    pe.save_source_file(
+                        inmod, sys.modules[inmod].__file__, dependencies=True
+                    )
                 else:
                     pe.save_source_string(inmod, importer[0].get_source(inmod))
-            
+
             pe.save_pickle('model', 'model.pkl', self)
             pe.save_text('model', 'class_list.txt', '\n'.join(self.class_list))
-        
+
         return destination
 
+
 class CustomRetinaNetClassificationHead(RetinaNetClassificationHead):
-    def __init__(self, in_channels, num_anchors, num_classes, alpha=0.25, gamma_loss=2.0, prior_probability=0.01, 
-                norm_layer: Optional[Callable[..., torch.nn.Module]] = None, dropout_prob=0.25, class_weights=None, label_smoothing=0.1):
-        super().__init__(in_channels, num_anchors, num_classes, prior_probability, norm_layer)
+    def __init__(
+        self,
+        in_channels,
+        num_anchors,
+        num_classes,
+        alpha=0.25,
+        gamma_loss=2.0,
+        prior_probability=0.01,
+        norm_layer: Optional[Callable[..., torch.nn.Module]] = None,
+        dropout_prob=0.25,
+        class_weights=None,
+        label_smoothing=0.1,
+    ):
+        super().__init__(
+            in_channels,
+            num_anchors,
+            num_classes,
+            prior_probability,
+            norm_layer,
+        )
         self.alpha = alpha
         self.gamma_loss = gamma_loss
         self.dropout = torch.nn.Dropout(p=dropout_prob)
@@ -565,89 +810,134 @@ class CustomRetinaNetClassificationHead(RetinaNetClassificationHead):
         losses = []
         cls_logits = head_outputs["cls_logits"]
 
-        for i, (targets_per_image, cls_logits_per_image, matched_idxs_per_image) in enumerate(zip(targets, cls_logits, matched_idxs)):
+        for i, (
+            targets_per_image,
+            cls_logits_per_image,
+            matched_idxs_per_image,
+        ) in enumerate(zip(targets, cls_logits, matched_idxs)):
             foreground_idxs_per_image = matched_idxs_per_image >= 0
             num_foreground = foreground_idxs_per_image.sum()
 
             gt_classes_target = torch.zeros_like(cls_logits_per_image)
-            gt_classes_target += self.label_smoothing / (self.num_classes - 1) # smoothing for negative classes
+            gt_classes_target += self.label_smoothing / (
+                self.num_classes - 1
+            )  # smoothing for negative classes
             gt_classes_target[
                 foreground_idxs_per_image,
-                targets_per_image["labels"][matched_idxs_per_image[foreground_idxs_per_image]],
-            ] = 1.0 - self.label_smoothing # smoothing for positive classes
+                targets_per_image["labels"][
+                    matched_idxs_per_image[foreground_idxs_per_image]
+                ],
+            ] = 1.0 - self.label_smoothing  # smoothing for positive classes
 
-            valid_idxs_per_image = matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+            valid_idxs_per_image = (
+                matched_idxs_per_image != self.BETWEEN_THRESHOLDS
+            )
             if self.class_weights is not None:
-                valid_labels = targets_per_image["labels"][matched_idxs_per_image[valid_idxs_per_image]]
-                weights = self.class_weights.to(valid_labels.device)[valid_labels]
+                valid_labels = targets_per_image["labels"][
+                    matched_idxs_per_image[valid_idxs_per_image]
+                ]
+                weights = self.class_weights.to(valid_labels.device)[
+                    valid_labels
+                ]
             else:
-                weights = torch.ones(cls_logits_per_image[valid_idxs_per_image].shape[0], 
-                                   dtype=torch.float32, device=cls_logits_per_image.device)
+                weights = torch.ones(
+                    cls_logits_per_image[valid_idxs_per_image].shape[0],
+                    dtype=torch.float32,
+                    device=cls_logits_per_image.device,
+                )
 
             losses.append(
-                (sigmoid_focal_loss(
-                    cls_logits_per_image[valid_idxs_per_image],
-                    gt_classes_target[valid_idxs_per_image],
-                    alpha=self.alpha,
-                    gamma=self.gamma_loss,
-                    reduction="none",
-                ) * weights.unsqueeze(1)).sum() / max(1, num_foreground)
+                (
+                    sigmoid_focal_loss(
+                        cls_logits_per_image[valid_idxs_per_image],
+                        gt_classes_target[valid_idxs_per_image],
+                        alpha=self.alpha,
+                        gamma=self.gamma_loss,
+                        reduction="none",
+                    )
+                    * weights.unsqueeze(1)
+                ).sum()
+                / max(1, num_foreground)
             )
 
         return _sum(losses) / len(targets)
-    
+
     def forward(self, x):
         all_cls_logits = []
         for features in x:
             cls_logits = self.conv(features)
-            cls_logits = self.dropout(cls_logits) 
+            cls_logits = self.dropout(cls_logits)
             cls_logits = self.cls_logits(cls_logits)
 
-            N, _, H, W = cls_logits.shape
-            cls_logits = cls_logits.view(N, -1, self.num_classes, H, W)
+            n, _, h, w = cls_logits.shape
+            cls_logits = cls_logits.view(n, -1, self.num_classes, h, w)
             cls_logits = cls_logits.permute(0, 3, 4, 1, 2)
-            cls_logits = cls_logits.reshape(N, -1, self.num_classes)  # Size=(N, HWA, K)
+            cls_logits = cls_logits.reshape(
+                n, -1, self.num_classes
+            )  # Size=(N, HWA, K)
 
             all_cls_logits.append(cls_logits)
 
         return torch.cat(all_cls_logits, dim=1)
 
+
 class CustomRetinaNetRegressionHead(RetinaNetRegressionHead):
-    def __init__(self, in_channels, num_anchors, norm_layer: Optional[Callable[..., torch.nn.Module]] = None, 
-                 _loss_type="smooth_l1", beta_loss=0.5, lambda_loss=1.0, dropout_prob=0.25):
+    def __init__(
+        self,
+        in_channels,
+        num_anchors,
+        norm_layer: Optional[Callable[..., torch.nn.Module]] = None,
+        _loss_type="smooth_l1",
+        beta_loss=0.5,
+        lambda_loss=1.0,
+        dropout_prob=0.25,
+    ):
         super().__init__(in_channels, num_anchors, norm_layer)
         self._loss_type = _loss_type
-        self.beta_loss = beta_loss # beta < 1 helps counter early plateauing
-        self.lambda_loss = lambda_loss # lambda > 1 places more emphasis on localization loss
+        self.beta_loss = beta_loss  # beta < 1 helps counter early plateauing
+        self.lambda_loss = (
+            lambda_loss  # lambda > 1 places more emphasis on localization loss
+        )
         self.dropout = torch.nn.Dropout(p=dropout_prob)
-    
+
     def compute_loss(self, targets, head_outputs, anchors, matched_idxs):
         losses = []
         bbox_regression = head_outputs["bbox_regression"]
 
-        for targets_per_image, bbox_regression_per_image, anchors_per_image, matched_idxs_per_image in zip(
-            targets, bbox_regression, anchors, matched_idxs
-        ):
-            foreground_idxs_per_image = torch.where(matched_idxs_per_image >= 0)[0]
+        for (
+            targets_per_image,
+            bbox_regression_per_image,
+            anchors_per_image,
+            matched_idxs_per_image,
+        ) in zip(targets, bbox_regression, anchors, matched_idxs):
+            foreground_idxs_per_image = torch.where(
+                matched_idxs_per_image >= 0
+            )[0]
             num_foreground = foreground_idxs_per_image.numel()
 
-            matched_gt_boxes_per_image = targets_per_image["boxes"][matched_idxs_per_image[foreground_idxs_per_image]]
-            bbox_regression_per_image = bbox_regression_per_image[foreground_idxs_per_image, :]
+            matched_gt_boxes_per_image = targets_per_image["boxes"][
+                matched_idxs_per_image[foreground_idxs_per_image]
+            ]
+            bbox_regression_per_image = bbox_regression_per_image[
+                foreground_idxs_per_image, :
+            ]
             anchors_per_image = anchors_per_image[foreground_idxs_per_image, :]
 
             losses.append(
-                    det_utils._box_loss(
+                det_utils._box_loss(
                     self._loss_type,
                     self.box_coder,
                     anchors_per_image,
                     matched_gt_boxes_per_image,
                     bbox_regression_per_image,
-                    cnf={'beta': self.beta_loss}, 
-                ) * self.lambda_loss / max(1, num_foreground)
+                    cnf={'beta': self.beta_loss},
+                )
+                * self.lambda_loss
+                / max(1, num_foreground)
             )
 
         return _sum(losses) / max(1, len(targets))
-    
+
     def forward(self, x):
         all_bbox_regression = []
         for features in x:
@@ -655,14 +945,17 @@ class CustomRetinaNetRegressionHead(RetinaNetRegressionHead):
             bbox_regression = self.dropout(bbox_regression)  # Apply dropout
             bbox_regression = self.bbox_reg(bbox_regression)
 
-            N, _, H, W = bbox_regression.shape
-            bbox_regression = bbox_regression.view(N, -1, 4, H, W)
+            n, _, h, w = bbox_regression.shape
+            bbox_regression = bbox_regression.view(n, -1, 4, h, w)
             bbox_regression = bbox_regression.permute(0, 3, 4, 1, 2)
-            bbox_regression = bbox_regression.reshape(N, -1, 4)  # Size=(N, HWA, 4)
+            bbox_regression = bbox_regression.reshape(
+                n, -1, 4
+            )  # Size=(N, HWA, 4)
 
             all_bbox_regression.append(bbox_regression)
 
         return torch.cat(all_bbox_regression, dim=1)
+
 
 class CustomRetinaNet(RetinaNet):
     def __init__(
@@ -706,7 +999,10 @@ class CustomRetinaNet(RetinaNet):
         for index in range(num_images):
             box_regression_per_image = [br[index] for br in box_regression]
             logits_per_image = [cl[index] for cl in class_logits]
-            anchors_per_image, image_shape = anchors[index], image_shapes[index]
+            anchors_per_image, image_shape = (
+                anchors[index],
+                image_shapes[index],
+            )
             image_boxes = []
             image_scores = []
             image_labels = []
@@ -715,10 +1011,17 @@ class CustomRetinaNet(RetinaNet):
                 box_regression_per_level,
                 logits_per_level,
                 anchors_per_level,
-            ) in zip(box_regression_per_image, logits_per_image, anchors_per_image):
+            ) in zip(
+                box_regression_per_image, logits_per_image, anchors_per_image
+            ):
                 # logits_per_level shape: (num_anchors, num_classes)
-                scores_per_level = torch.sigmoid(logits_per_level)  # (N, num_classes)
-                scores_per_level, labels_per_level = scores_per_level.max(dim=-1)  # (N,), (N,)
+                # Column 0 is background and never a target, so it is left
+                # out of the argmax; labels stay 1-based like the targets.
+                scores_per_level = torch.sigmoid(logits_per_level)[:, 1:]
+                scores_per_level, labels_per_level = scores_per_level.max(
+                    dim=-1
+                )  # (N,), (N,)
+                labels_per_level = labels_per_level + 1
 
                 keep_idxs = scores_per_level > self.score_thresh
                 scores_per_level = scores_per_level[keep_idxs]
@@ -783,7 +1086,9 @@ class CustomRetinaNet(RetinaNet):
                 if remaining_boxes_mask[i]:
                     final_keep.append(i)
                     current_box = keep_boxes[i : i + 1]
-                    ious = box_ops.box_iou(current_box, keep_boxes[remaining_boxes_mask])[0]
+                    ious = box_ops.box_iou(
+                        current_box, keep_boxes[remaining_boxes_mask]
+                    )[0]
                     high_overlap_indices = torch.where(ious > 0.8)[0]
                     absolute_indices = torch.where(remaining_boxes_mask)[0][
                         high_overlap_indices
@@ -805,35 +1110,45 @@ class CustomRetinaNet(RetinaNet):
             )
         return detections
 
+
 class Detector(torch.nn.Module):
     def __init__(self, num_classes: int = 10, pretrained_detector=None):
         super().__init__()
         self.basemodel = self._get_custom_retinanet_model(num_classes)
-        
+
         if pretrained_detector is not None:
             self._load_compatible_weights(pretrained_detector)
-            
-        self._device_indicator = torch.nn.Parameter(torch.zeros(0))  # dummy parameter
-    
+
+        self._device_indicator = torch.nn.Parameter(
+            torch.zeros(0)
+        )  # dummy parameter
+
     def _load_compatible_weights(self, pretrained_detector):
-        """Load weights from pretrained detector, skipping incompatible layers (classification/regression heads)"""
+        """Copy every weight whose shape matches from pretrained_detector.
+
+        Layers whose shape changed with the class count (the classification
+        head outputs) are left at their fresh initialisation.
+        """
         pretrained_state = pretrained_detector.basemodel.state_dict()
         current_state = self.basemodel.state_dict()
-        
+
         compatible_weights = {}
-        
+
         for key, value in pretrained_state.items():
-            if key in current_state and current_state[key].shape == value.shape:
+            if (
+                key in current_state
+                and current_state[key].shape == value.shape
+            ):
                 compatible_weights[key] = value
-        
+
         self.basemodel.load_state_dict(compatible_weights, strict=False)
-    
+
     def _get_custom_retinanet_model(self, num_classes: int):
-        trainable_backbone_layers = 2 
+        trainable_backbone_layers = 2
         backbone = resnet_fpn_backbone(
             'resnet50',
             weights=torchvision.models.ResNet50_Weights.DEFAULT,
-            trainable_layers=trainable_backbone_layers
+            trainable_layers=trainable_backbone_layers,
         )
         model = CustomRetinaNet(
             backbone,
@@ -848,7 +1163,7 @@ class Detector(torch.nn.Module):
             bg_iou_thresh=0.5,
             topk_candidates=200,
             nms_score=0.6,
-            nms_sigma=0.5
+            nms_sigma=0.5,
         )
         in_channels = model.head.classification_head.cls_logits.in_channels
         num_anchors = model.head.classification_head.num_anchors
@@ -860,7 +1175,7 @@ class Detector(torch.nn.Module):
             alpha=0.5,
             gamma_loss=2.0,
             prior_probability=0.01,
-            dropout_prob=0.25
+            dropout_prob=0.25,
         )
         model.head.regression_head = CustomRetinaNetRegressionHead(
             in_channels=in_channels,
@@ -868,14 +1183,23 @@ class Detector(torch.nn.Module):
             _loss_type="smooth_l1",
             beta_loss=0.6,
             lambda_loss=0.75,
-            dropout_prob=0.25
+            dropout_prob=0.25,
         )
-        model.anchor_generator = AnchorGenerator( # sizes and ratios calculated from dataset resized to 810x1440
-            sizes=((24, 32, 40), (48, 64, 80), (96, 128, 160), (192, 256, 320), (472, 536, 600)),
-            aspect_ratios=((0.75, 1.15, 1.8),) * 5
+        # Sizes and ratios were fitted to the training set resized to 810x1440.
+        model.anchor_generator = AnchorGenerator(
+            sizes=(
+                (24, 32, 40),
+                (48, 64, 80),
+                (96, 128, 160),
+                (192, 256, 320),
+                (472, 536, 600),
+            ),
+            aspect_ratios=((0.75, 1.15, 1.8),) * 5,
         )
         return model
-    
-    def forward(self, x, targets: Optional[List[Dict[str, torch.Tensor]]] = None):
+
+    def forward(
+        self, x, targets: Optional[List[Dict[str, torch.Tensor]]] = None
+    ):
         out = self.basemodel(x, targets)
         return out
